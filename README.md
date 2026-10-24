@@ -1,93 +1,105 @@
-# 武汉个性化等时圈与区位评估平台
+# 城市慢跑 / 慢骑环境适宜性评价与路线推荐系统
 
-基于 OSM 路网 + 高德公交/地铁数据，计算武汉任意起点在 **15/30/45 分钟**内
-步行 + 公交 + 地铁可达的范围，统计范围内 POI 与交通设施，并支持候选地点对比。
+用公开数据评价武汉每条街道"跑起来舒不舒服"，并推荐闭合环线。
 
-> 课程项目 / 首版原型。不是商业级选址工具，结论以"相对比较"为主。
+> 给定起点与目标距离（3/5/10 km），在 9.1 万段路网上打分（安全 / 绿化 / 坡度 /
+> 过街 / 设施五维），再生成若干条**不重走原路**的环线，并解释每条为什么好。
+
+课程项目（选题调整后）。原「个性化等时圈」选题已被其他组占用，
+旧版文档归档在 `docs/archive/等时圈版本/`，路网与图计算的成果仍然复用。
 
 ## 现状
 
 | 模块 | 状态 |
 |---|---|
-| 数据（591 条公交、9 条地铁、47,051 km 步行路网、1.4 万 POI） | 已冻结为 v1 |
-| 多模式图（102 万节点 / 217 万边） | 完成 |
-| 等时圈算法（3 个试点 × 15/30/45 分钟） | 完成，已验收 |
-| 后端 API（FastAPI） | 未开始 |
-| 前端（Vue 3 + 百度地图） | 未开始 |
+| 数据：路网 47,051 km、SRTM 30 m、WorldCover 10 m 树冠、高德 5,137 场馆 | 完成 |
+| 五维评分（9.1 万段 / 4.7 万公里，全程可解释） | 完成 |
+| 环线生成（半程折返 + 双向惩罚，1.2 s/次） | 完成 |
+| 前端静态原型（1440×900） | 完成 |
+| Vue + 百度地图 可交互版 | 未开始 |
+| FastAPI 接口 | 未开始 |
 | 答辩 PPT | 未开始 |
+
+## 结果一览
+
+| 起点 | 5 km 环线 | 用时 | 综合分 | 树冠 | 平均坡度 |
+|---|---|---:|---:|---:|---:|
+| 武汉大学 | 5.34 km | 32 min | 78.5 | 58% | 3.5% |
+| 东湖绿道 | 5.58 km | 34 min | 70.9 | 64% | 3.0% |
+| 汉口江滩 | 5.30 km | 32 min | 58.6 | 38% | 0.7% |
+
+- 环线图：`data/output/running/v1/loops.png`
+- 评分地图：`data/output/running/v1/map_donghu.png`
+- 前端原型：`data/output/ui/round-1/desktop.png`
 
 ## 目录结构
 
 ```text
-.
-├── backend/                 # Python 分析内核与数据流水线
-│   ├── app/                 #   可被 API 复用的算法包
-│   │   ├── config.py        #   全部建模参数（步速/车速/候车/换乘）
-│   │   ├── paths.py         #   全项目唯一的路径定义
-│   │   ├── graph.py         #   多模式图构建（scipy CSR）
-│   │   └── isochrone.py     #   最短路、时间面、等值面、路径分解
-│   ├── scripts/             #   数据抓取 / 清洗 / 建图 / 试点脚本
-│   └── requirements.txt
-├── frontend/                # Vue 3 + 百度地图（待建）
-├── data/
-│   ├── raw/                 # 原始下载（不入库，见 data/README.md）
-│   ├── interim/             # 高德合并表
-│   ├── processed/v1/        # 冻结数据集（开发只读这里）
-│   ├── processed/graph/     # 图缓存（不入库，可重建）
-│   └── output/              # 图片、等时圈 GeoJSON、QA 报告
-├── docs/                    # 项目文档（说明书、数据报告、进展报告）
-├── tools/                   # 一次性的历史脚本（不参与主流程）
-├── vendor/                  # 第三方下载（QGIS 安装包等，不入库）
-├── 项目进度与交接说明.md      # 交接主文档
-└── AGENTS.md                # 给 AI 协作者的上下文说明
+backend/
+  app/
+    config.py      建模参数（速度、候车、权重）
+    paths.py       全项目路径
+    running.py     ★ 跑步图 + 环线生成
+    graph.py       多模式交通图（前版，接驳用）
+    isochrone.py   等时圈内核（前版，保留）
+  scripts/
+    fetch_dem.py              SRTM 高程（9 幅瓦片）
+    fetch_amap_sport_poi.py   高德运动场馆（网格 + 翻页）
+    build_slope.py            坡度（150 m 平滑后求梯度）
+    build_canopy.py           树冠（WorldCover 10 m）
+    build_running_dataset.py  五维评分 → segments.gpkg
+    plot_running_map.py       评分地图 + 原型底图
+    run_loop_demo.py          3 个起点的环线
+    prepare_dataset.py / verify_dataset.py   基础数据集（前版）
+frontend/prototype/index.html  静态原型
+data/
+  raw/           原始下载（SRTM、WorldCover、OSM、高德缓存），不入库
+  processed/v1/  基础数据集（路网 / 公交 / 地铁 / POI）
+  processed/running/v1/  坡度、树冠、场馆、评分
+  output/running/v1/     地图、环线、GeoJSON
+docs/            说明书、数据字典、进展报告
+tools/           一次性历史脚本
 ```
 
 ## 快速开始
 
 ```powershell
-# 1. 环境（Windows PowerShell）
+# 1. 环境
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
 
-# 2. 数据：把 data/raw/ 与 data/interim/amap_pilot/ 从共享盘拷回（见 data/README.md）
-#    然后重建冻结数据集与图缓存
-.\.venv\Scripts\python.exe backend\scripts\prepare_dataset.py
-.\.venv\Scripts\python.exe backend\scripts\build_graph.py
+# 2. 数据（raw 不入库，见 data/README.md）
+.\.venv\Scripts\python.exe backend\scripts\fetch_dem.py
+# WorldCover：data/raw/worldcover/ 下 4 个 .tif，见 docs/数据补充清单.md
 
-# 3. 跑 3 个测试点的等时圈
-.\.venv\Scripts\python.exe backend\scripts\run_pilot_isochrones.py
+# 3. 计算
+.\.venv\Scripts\python.exe backend\scripts\build_slope.py
+.\.venv\Scripts\python.exe backend\scripts\build_canopy.py
+.\.venv\Scripts\python.exe backend\scripts\fetch_amap_sport_poi.py
+.\.venv\Scripts\python.exe backend\scripts\build_running_dataset.py
+.\.venv\Scripts\python.exe backend\scripts\plot_running_map.py
+
+# 4. 环线
+.\.venv\Scripts\python.exe backend\scripts\run_loop_demo.py
 ```
-
-产物：
-
-- 等时圈：`data/output/isochrones/v1/pilot_isochrones.geojson`
-- 三联图：`data/output/isochrones/v1/pilot_map.png`
-- 图缓存：`data/processed/graph/v1/multimodal.npz`（35 MB，加载即用，无需重建）
 
 ## 关键文档
 
-- [项目进度与交接说明.md](项目进度与交接说明.md) —— 先读这份
+- [项目进度与交接说明.md](项目进度与交接说明.md) —— 进度真相来源
+- [docs/项目说明书-v4.0.md](docs/项目说明书-v4.0.md) —— 答辩主文档（Word 版同名 .docx）
+- [docs/开发进展-慢跑适宜性与环线.md](docs/开发进展-慢跑适宜性与环线.md)
+- [docs/数据字典-跑步数据集.md](docs/数据字典-跑步数据集.md)
 - [AGENTS.md](AGENTS.md) —— 用 AI 协作者时先喂这份
-- [docs/项目说明书-v3.0.md](docs/项目说明书-v3.0.md)
-- [docs/数据冻结与开发就绪报告.md](docs/数据冻结与开发就绪报告.md)
-- [docs/开发进展-多模式图与等时圈试点.md](docs/开发进展-多模式图与等时圈试点.md)
-- [docs/design-guidelines.md](docs/design-guidelines.md) —— 做前端页面之前读
-- [docs/数据字典-v1.md](docs/数据字典-v1.md)
 
-## 已知限制
+## 已知限制（写进报告，不要说反）
 
-- 公交 **591/694** 条（缺 103 条：夜行线、P 字头郊区线、区间车），不能表述为"武汉全部公交"；
-- 时刻是**频率级**（工作日/周末 × 发车间隔），没有逐班次 `stop_times`；
-- POI 仅 1.4 万个且集中在中心城区，POI 统计只反映 OSM 覆盖度；
-- 地铁站是站中心点，没有出入口数据；
-- 步行路网缺人行道、天桥、地下通道细节。
+- 没有街景：百度/高德不提供、腾讯需企业认证、Mapillary 中国区影像老旧；
+  绿化用 **ESA WorldCover 10 m 树冠** 代理，反映成片林荫，**不识别单排行道树**；
+- 没有路段车流量：安全用道路等级 + 距主干道距离 + 路口密度代理；
+- 没有官方健身设施清单：设施用高德 POI（4,081 个），远城区偏稀；
+- 评分是**代理指标**，不等于真实跑步体验，也没有用轨迹做过验证。
 
 ## 数据来源
 
-- 路网 / POI：OpenStreetMap（Geofabrik 湖北提取）
-- 公交 / 地铁站点与线路：高德开放平台（已缓存，勿重复抓取）
-- 行政边界：武汉市 1:100 万矢量边界
-
-## 许可
-
-仅供课程学习与教学演示使用。OSM 数据遵循 ODbL，高德数据遵循其开放平台协议。
+OSM（路网 / 绿地 / 水体 / POI）、NASA SRTM（高程）、ESA WorldCover（地表覆盖）、
+高德开放平台（运动场馆 POI）。OSM 遵循 ODbL，高德数据遵循其开放平台协议。

@@ -1,49 +1,48 @@
 # AGENTS.md — AI 协作者上下文
 
-给接手本仓库的 AI Agent（以及人）看的说明。**改代码前先读完这份**，
-它比 README 更具体：哪里是入口、数据长什么样、哪些坑已经踩过。
-
-最后更新：2026-10-20
+给接手本仓库的 AI Agent（以及人）看的说明。**改代码前先读完**。
+最后更新：2026-10-25
 
 ---
 
 ## 1. 项目是什么
 
-武汉单城的**个性化等时圈与区位评估**原型：给定一个起点坐标和时间预算
-（15/30/45 分钟），算出步行 + 公交 + 地铁可达范围，统计范围里的 POI 和交通设施。
+**城市慢跑 / 慢骑环境适宜性评价与路线推荐**（课程项目）。
 
-技术栈：Python 3.13 + pandas/geopandas/shapely/pyogrio + scipy 稀疏图；
-前端计划 Vue 3 + 百度地图（未开始）。
+给定起点和 3/5/10 km 目标距离，在武汉 9.1 万段路网上：
+1. 给每段路打 **0–100 适宜性分**（安全 / 绿化 / 坡度 / 过街 / 设施五维，权重显式）；
+2. 生成**闭合环线**（半程折返 + 去程边双向惩罚，保证不原路返回）；
+3. 在静态原型页上展示地图、环线与可解释指标。
 
-**当前状态**：数据冻结 v1 → 多模式图 → 等时圈算法，三步已完成并验收。
-后端 API 与前端尚未开始。
+> **历史**：项目原为「个性化等时圈」（v3.0），选题被占后转向。
+> 路网图、最短路、POI 统计等内核仍保留在 `app/graph.py`、`app/isochrone.py`，
+> 旧文档归档在 `docs/archive/等时圈版本/`。**不要把新功能写回等时圈文档。**
 
 ---
 
 ## 2. 环境与命令
 
 ```powershell
-# 项目内虚拟环境（唯一支持的运行方式）
-.\.venv\Scripts\python.exe -V     # Python 3.13.3
+.\.venv\Scripts\python.exe -V       # Python 3.13.3
 $env:PYTHONIOENCODING='utf-8'
 $env:PYTHONUNBUFFERED='1'
 ```
 
-所有脚本都可以**在任意工作目录**下运行（路径解析基于 `__file__`）：
+脚本可在任意工作目录运行（路径基于 `__file__`）。
 
 ```powershell
-# 建图（首次约 6 秒；之后读缓存）
-.\.venv\Scripts\python.exe backend\scripts\build_graph.py
+# 数据（一次性；raw 不入库）
+.\.venv\Scripts\python.exe backend\scripts\fetch_dem.py            # SRTM 9 幅瓦片
+.\.venv\Scripts\python.exe backend\scripts\fetch_amap_sport_poi.py # 高德场馆（有缓存）
 
-# 3 个试点 × 15/30/45 分钟
-.\.venv\Scripts\python.exe backend\scripts\run_pilot_isochrones.py
+# 计算
+.\.venv\Scripts\python.exe backend\scripts\build_slope.py          # 坡度
+.\.venv\Scripts\python.exe backend\scripts\build_canopy.py         # 树冠
+.\.venv\Scripts\python.exe backend\scripts\build_running_dataset.py# 五维评分
+.\.venv\Scripts\python.exe backend\scripts\plot_running_map.py     # 地图
 
-# 重建冻结数据集（会清空并重写 data/processed/v1）
-.\.venv\Scripts\python.exe backend\scripts\prepare_dataset.py
-
-# 回读校验
-.\.venv\Scripts\python.exe backend\scripts\verify_dataset.py
-.\.venv\Scripts\python.exe backend\scripts\data_audit.py
+# 环线
+.\.venv\Scripts\python.exe backend\scripts\run_loop_demo.py
 ```
 
 ---
@@ -52,133 +51,132 @@ $env:PYTHONUNBUFFERED='1'
 
 | 路径 | 作用 | 入库 |
 |---|---|---|
-| `backend/app/config.py` | **全部建模参数**（步速、车速、候车、换乘） | ✅ |
-| `backend/app/paths.py` | 全项目唯一的路径定义 | ✅ |
-| `backend/app/graph.py` | 多模式图构建 + 缓存读写 + `Graph` 类 | ✅ |
-| `backend/app/isochrone.py` | 最短路、时间面、等值面、POI 统计、路径分解 | ✅ |
-| `backend/scripts/prepare_dataset.py` | 原始数据 → 冻结数据集 v1 | ✅ |
-| `backend/scripts/build_graph.py` | 建图并缓存 | ✅ |
-| `backend/scripts/run_pilot_isochrones.py` | 3 个试点出 GeoJSON + 三联图 | ✅ |
-| `backend/scripts/_paths.py` | 脚本共享路径（`from _paths import ...`） | ✅ |
-| `backend/scripts/fetch_*.py` | 高德抓取（**已缓存，勿重跑**） | ✅ |
-| `backend/scripts/merge_*.py` / `snap_*.py` / `extract_*.py` | 合并、吸附、提取线路几何 | ✅ |
-| `data/processed/v1/` | **冻结数据集，开发只读这里** | ✅ |
-| `data/processed/graph/` | 图缓存（npz，35 MB，可重建） | ❌ |
-| `data/raw/` | 原始下载（12 GB：OSM、CPTOND、1:25 万、公开公交数据） | ❌ |
-| `data/cache/` | 高德 API 响应缓存（68 MB，删了要重新耗配额） | ❌ |
-| `data/output/` | 图片、等时圈 GeoJSON、QA 报告 | ✅ |
-| `docs/` | 说明书、数据报告、进展报告 | ✅ |
-| `tools/` | 一次性历史脚本（路径已失效，别当主流程） | ✅ |
-| `vendor/` | QGIS 安装包等第三方下载 | ❌ |
+| `backend/app/running.py` | **跑步图 + 环线生成（当前核心）** | ✅ |
+| `backend/app/config.py` | 参数（步速、车速、权重）：唯一"魔法数字"来源 | ✅ |
+| `backend/app/paths.py` | 全项目路径定义 | ✅ |
+| `backend/app/graph.py` | 多模式交通图（前版，接驳用） | ✅ |
+| `backend/app/isochrone.py` | 等时圈内核（前版，保留） | ✅ |
+| `backend/scripts/build_slope.py` | SRTM → 路段坡度 | ✅ |
+| `backend/scripts/build_canopy.py` | WorldCover → 路段树冠 | ✅ |
+| `backend/scripts/build_running_dataset.py` | 五维评分 → `segments.gpkg` | ✅ |
+| `backend/scripts/run_loop_demo.py` | 3 起点环线 → GeoJSON + PNG | ✅ |
+| `backend/scripts/fetch_amap_sport_poi.py` | 高德场馆抓取（**勿重跑**，有缓存） | ✅ |
+| `data/processed/v1/` | 基础数据集（路网 / 公交 / 地铁 / POI） | ✅ |
+| `data/processed/running/v1/` | 坡度、树冠、场馆、评分（约 45 MB） | ✅ |
+| `data/processed/running/graph/` | 跑步图缓存（37 MB） | ❌ 可重建 |
+| `data/raw/` | SRTM、WorldCover、OSM、高德缓存（约 12 GB） | ❌ |
+| `data/output/running/v1/` | 地图、环线图、GeoJSON | ✅ |
+| `frontend/prototype/` | 静态原型 + 截图 | ✅ |
+| `docs/` | 说明书 v4.0、数据字典、进展报告 | ✅ |
+| `tools/` | 一次性历史脚本，**不要当参考实现** | ✅ |
 
 ---
 
-## 4. 数据契约（v1）
+## 4. 数据契约
 
-字段级说明见 `docs/数据字典-v1.md`，这里只列最容易搞错的：
+字段细节见 `docs/数据字典-跑步数据集.md` 与 `docs/数据字典-v1.md`。必记：
 
 | 事实 | 说明 |
 |---|---|
-| CRS | 全部 **EPSG:4326**；长度字段单位米（计算用 EPSG:32650） |
-| 节点 ID | 公交 `B-<station_key>`，地铁 `M-<station_id>`，站台 `P-<bus\|metro>-<line_id>-<seq>` |
-| `stops_bus.csv` | 7,823 行，主键 `node_id`；`station_id` **会重复**（1 个高德 ID 拆成多个空间站） |
-| `edges_*.csv` | 有向边；`distance_m` 是**直线**距离，`dist_route_m` 才是沿线里程 |
-| `dist_source` | `shape`（可信）/ `crowfly`（92 条公交边几何异常，用直线 × 1.2） |
-| `metro_schedule.csv` | 发车间隔（秒），没有逐班次时刻表 |
-| `osm_walk_roads.gpkg` | 层 `walk_roads`，91,203 段 / 47,051 km，`in_boundary` 标记城内/缓冲带 |
-| `poi.gpkg` | 层 `poi_points`（全部转点，计数用它）、`poi_areas`（原始面，仅展示） |
-| 站点坐标 | `lng/lat` 是 WGS84；`snap_lng/snap_lat` 是吸附到路网后的位置；`*_gcj02` 只用于回溯 |
+| CRS | 全部 **WGS84 (EPSG:4326)**；长度/坡度用 **EPSG:32650** 计算 |
+| 评分主表 | `data/processed/running/v1/segments.gpkg` 图层 `segments`，9.1 万行 |
+| 评分字段 | `s_safety / s_green / s_slope / s_cross / s_fac`（0–100）+ `score` + `grade` |
+| 原始指标 | `slope_mean_pct`、`tree_share`、`d_main_m`、`cross_200m`、`d_fac_m` |
+| 环线输出 | `data/output/running/v1/loops.geojson`，属性含 `rank`、`score`、`sub`(JSON) |
+| 场馆 | `data/processed/running/v1/amap_sport_poi.csv`，5,137 个（含 `in_boundary`） |
+| 基础路网 | `data/processed/v1/osm_walk_roads.gpkg` 图层 `walk_roads`，9.1 万段 |
 
-**开发只读 `data/processed/v1/`。** `data/interim/` 是上游中间表，字段更乱，不要在新代码里引用。
+**不要**在新代码里读 `data/interim/`（上游中间表，字段更乱）。
 
 ---
 
 ## 5. 代码入口
 
 ```python
-from app.graph import load_or_build, Graph, BUS_STOP, METRO_STOP, WALK
-from app.isochrone import nearest_walk_node, travel_times, time_surface, \
-                          surface_polygons, poi_stats, explain_path, reachable_stops
+import sys; sys.path.insert(0, "backend")
+from app import running
 
-g = load_or_build(cache=True)              # 1,015,242 节点 / 2,174,254 边
-node, snap_m = nearest_walk_node(g, 114.3546, 30.5342)
-dist, pred = travel_times(g, node, predecessors=True)   # 秒，inf 表示不可达
-X, Y, Z = time_surface(g, dist, bbox, res_m=100)        # 连续时间面
-polys = surface_polygons(X, Y, Z, [900, 1800, 2700], boundary)  # 自动嵌套
-stats = poi_stats(polys[900.0])                         # 范围内 POI 分类计数
-legs = explain_path(g, node, target, pred)              # 逐段：步行/候车/乘车/换乘
+g = running.load_or_build()                    # 979,351 节点 / 2,075,761 边
+loops = running.generate_loops(g, 114.3547, 30.5342, target_m=5000,
+                               prefs={"green": 1.0, "safe": 1.0, "flat": 0.6})
+# 每条：length_m / minutes / score / tree_share / slope_mean_pct / facility_m / sub
+fc = running.to_geojson(g, loops)              # FeatureCollection（LineString）
 ```
 
-图的结构（改算法前必须理解）：
+图结构：
 
 ```text
-walk 顶点  <-> walk 顶点     length / 1.2 m/s
-walk 顶点  <-> 站点          接驳距离 / 1.2 m/s
-站点        -> 站台          候车时间（公交 480 s；地铁按线路 interval/2）
-站台(a)     -> 站台(b)       乘车时间 = dist_route / 速度 + 停站
-站台        -> 站点          0
+顶点 = segments.gpkg 里每条路段的首尾顶点（1e-6 度去重）
+边   = 相邻顶点，双向，携带该段的 score / tree_share / slope / cross / d_fac
+代价 = 距离 × (1 + (100 − 偏好子分) / 40)      # 低分路段最多贵 3.5 倍
 ```
 
-**换乘成本就是这个结构自然产生的**：下车免费，再上车要再等一次车。
-不要额外加"换乘惩罚"，否则会重复计算。
+环线算法（改之前先读 `app/running.py` 的注释）：
+
+1. 距离场取 0.44–0.56×目标 处为候选折点，按方位角取 8 个方向；
+2. 去程用偏好代价最短路；
+3. 回程把去程边**双向**代价 ×4 后最短路（只惩罚单向会导致原路往返）；
+4. 保留总长 85%–115% 目标的候选，去重后按分排序。
 
 ---
 
-## 6. 建模参数
+## 6. 评分口径
 
-全部在 `backend/app/config.py` 的 `Params`（frozen dataclass），改默认值就改这里：
+| 维度 | 权重 | 来源 | 代理性质 |
+|---|---:|---|---|
+| 安全 | 0.30 | 道路等级 + 距主干道距离 | 无路段车流量 |
+| 绿化 | 0.25 | 0.7×WorldCover 树冠 + 0.3×到绿地距离 | 不识别单排行道树 |
+| 坡度 | 0.20 | SRTM 30 m 平滑后梯度 | ±1 个百分点 |
+| 过街 | 0.10 | 200 m 内路口数 | 只数顶点度 ≥3 |
+| 设施 | 0.10 | 到最近场馆距离的指数衰减 | 高德 POI，远城偏稀 |
 
-| 参数 | 默认 | 含义 |
-|---|---:|---|
-| `walk_speed_mps` | 1.2 | 步行 4.3 km/h |
-| `bus_speed_mps` | 4.5 | 公交 16.2 km/h（含信号） |
-| `bus_dwell_s` | 25 | 每站停靠 |
-| `bus_wait_s` | 480 | 公交候车（无时刻表，全局近似） |
-| `metro_speed_mps` | 9.5 | 地铁 34.2 km/h |
-| `metro_dwell_s` | 35 | |
-| `metro_wait_fallback_s` | 240 | 线路无 schedule 时的兜底 |
-| `walk_access_max_m` | 800 | 站点离路网超过此值不接入 |
-
-要支持"用户自选速度/换乘偏好"，构造 `Params(...)` 传给 `build()` 即可，
-但**换参数后必须重建图**（权重在边上），缓存路径按参数区分是 TODO。
+改权重：改 `build_running_dataset.py` 的 `W` 或调用 `generate_loops(prefs=...)`。
+**改评分必须重跑** `build_running_dataset.py`，再重跑 `run_loop_demo.py`（图缓存会过期）。
 
 ---
 
 ## 7. 常见任务
 
-- **加一个试点 / 换起点**：改 `backend/scripts/run_pilot_isochrones.py` 里的 `TEST_POINTS`。
-- **改等时圈形状**：调 `time_surface(res_m=)` 与 `surface_polygons(smooth_m=, min_component_m2=)`。
-- **换城市**：`prepare_dataset.py` 的 `WALKABLE`/`CRS_METRIC`/边界路径要改，其余逻辑通用。
-- **接后端 API**：直接 `from app...` 复用，图用 `load_or_build()` 常驻内存，单次请求 1–2 秒。
+- **换起点 / 距离**：改 `run_loop_demo.py` 的 `ORIGINS` 与 `TARGET_M`。
+- **加一个评分维度**：在 `build_running_dataset.py` 算指标 → 加子分 → 调权重 → 更新
+  `docs/数据字典-跑步数据集.md`。
+- **改环线形状**：调 `generate_loops(max_candidates=)`、折点带宽（0.44–0.56）、
+  回程惩罚（4.0）。
+- **换城市**：改 `build_canopy.py` / `build_slope.py` 的瓦片清单与 bbox，
+  `prepare_dataset.py` 的 `WALKABLE`，其余逻辑通用。
 
 ---
 
-## 8. 已知坑 / 不要做的事
+## 8. 已踩过的坑（不要重复）
 
-1. **不要重新抓高德数据**。`data/cache/` 和 `data/interim/amap_pilot/` 已有缓存，重跑会烧配额
-   （`bus/linename` 只有 100 次/日）。
-2. **不要硬编码路径**。新脚本必须 `from _paths import ...`（scripts）或
-   `from .paths import ...`（app），否则换机器就崩。
-3. **不要用 `distance_m` 算时间**，用 `dist_route_m`。
-4. **不要把 `.env` 提交**（已在 .gitignore）。
-5. **不要删除 `snap_quality=low` 的站点**，它们是远城区网络的一部分。
-6. **不要把 591 条线路说成"武汉全部公交"**，缺 103 条。
-7. **POI 只有 1.4 万个**，不要用它论证真实商业密度。
-8. `tools/` 里的脚本是历史遗留，路径假设已变，**不要当参考实现**。
-9. 中文文件名在 PowerShell 里容易乱码，读写文本请用 Python + `encoding="utf-8"`。
+1. **WorldCover 拼接错位**：`rasterio` 的 `read(window=from_bounds(bbox), boundless=True)`
+   返回的是**整幅 bbox**（瓦片外补 0），不是瓦片局部；按瓦片偏移贴回会让后一幅覆盖前一幅。
+   正确做法是按 bbox 1:1 合成，只用 `>0` 的像元。
+   症状：林地 `tree_share = 0`、远山 100%。
+2. **SRTM 逐点差分会得到假坡度**（城区中位 2.66%）；必须先平滑（σ=150 m）再求梯度。
+3. **环线原路往返**：只惩罚去程方向的有向边不够，回程是反向边，必须**双向**惩罚。
+4. **高德 QPS 限流**（`CUQPS_HAS_EXCEEDED_THE_LIMIT`）：间隔 0.45 s + 指数退避；
+   **失败响应不要写进缓存**，否则重跑会当成有效结果跳过。
+5. **pyosmium 打不开中文路径的 PBF**（Windows）：先复制到 ASCII 路径再解析。
+6. **CSR 属性对齐**：同一 (u,v) 可能来自多条 OSM way，`csr_matrix` 会合并重复项，
+   导致属性数组长度与 `nnz` 不一致。先 `unique` + 按 (row, col) 排序再显式构造 `indptr`。
+7. **`distance_m` vs `dist_route_m`**（前版遗留）：前者是直线距离，只能用于展示。
+8. **不要重新抓高德**：`data/cache/amap_sport/` 有 500+ 条响应，重跑会耗配额。
+9. **中文路径 + PowerShell**：读写文本用 Python + `encoding="utf-8"`；
+   `Set-Content` 会按 GBK 重写导致乱码。
 
 ---
 
 ## 9. 改完怎么自检
 
 ```powershell
-.\.venv\Scripts\python.exe backend\scripts\verify_dataset.py   # 数据仍自洽
-.\.venv\Scripts\python.exe backend\scripts\run_pilot_isochrones.py
-# 看三个点是否 nested 15<30<45 = True，面积量级是否合理（15 min ≈ 2–3 km²）
+.\.venv\Scripts\python.exe -c "import sys; sys.path.insert(0,'backend'); from app import running; g=running.load_or_build(); lp=running.generate_loops(g,114.3547,30.5342,5000); print(len(lp), lp[0]['length_m'], round(lp[0]['score'],1))"
 ```
 
-如果改了 `prepare_dataset.py`，跑完后 `git status` 应该只有
-`data/processed/v1/*` 与 `manifest.json` 变化；**否则说明有隐藏的路径/随机性**。
+判据：`length_m` 在 4250–5750 之间，`score` 在 60–90 之间，路线闭合（首尾节点相同）。
+
+改了评分后重跑 `build_running_dataset.py` 与 `run_loop_demo.py`，
+并删除 `data/processed/running/graph/` 让图缓存重建。
 
 ---
 
@@ -186,12 +184,12 @@ walk 顶点  <-> 站点          接驳距离 / 1.2 m/s
 
 | 文档 | 读它的场景 |
 |---|---|
-| `项目进度与交接说明.md` | 想知道全项目到哪一步了 |
-| `docs/项目说明书-v3.0.md` | 答辩口径、功能边界 |
-| `docs/数据冻结与开发就绪报告.md` | 数据怎么来的、校验结论 |
-| `docs/开发进展-多模式图与等时圈试点.md` | 算法怎么实现的、参数、试点结果 |
-| `docs/数据字典-v1.md` | 每个字段的含义 |
-| `docs/design-guidelines.md` | **做前端页面前必读**：视觉方向、brief 模板、截图评审、交付清单 |
-| `README.md` | 新成员第一次进门 |
+| `项目进度与交接说明.md` | 全项目到哪一步了 |
+| `docs/项目说明书-v4.0.md` | 答辩口径、指标体系、边界 |
+| `docs/开发进展-慢跑适宜性与环线.md` | 实现细节、踩过的坑、结果 |
+| `docs/数据字典-跑步数据集.md` | 评分/环线字段 |
+| `docs/数据补充清单.md` | 数据从哪来、什么补不来 |
+| `docs/design-guidelines.md` | 做前端页面前 |
+| `docs/archive/等时圈版本/` | 旧选题，仅供追溯，**不要引用** |
 
-**改结构时同步更新这份 AGENTS.md 与 `项目进度与交接说明.md` 的路径表。**
+**改结构或改评分口径时，同步更新本文件与 `项目进度与交接说明.md`。**
