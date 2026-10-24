@@ -34,6 +34,7 @@ data/interim/amap_pilot/
 
 # ---------- 可重建的中间产物 ----------
 data/processed/graph/
+data/processed/running/graph/
 *.log
 *.zip
 *.pbf

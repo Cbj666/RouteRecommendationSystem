@@ -57,6 +57,14 @@ def main() -> int:
     ).to_crs(32650)
     sport = sport.cx[west:east, south:north]
 
+    # overlay the generated loop for the campus origin (real route, not a mock)
+    loop_path = OUT.parent / "v1" / "loops.geojson"
+    loops = None
+    if loop_path.exists():
+        lj = gpd.read_file(loop_path)
+        loops = lj[(lj["origin"] == "wuda") & (lj["rank"] == 1)].to_crs(32650)
+        print(f"[map] loop overlay: {len(loops)} line(s), {loops['length_m'].iloc[0] if len(loops) else 0:.1f} m")
+
     fig, ax = plt.subplots(figsize=(13, 10), dpi=170)
     water.plot(ax=ax, color="#cfe3f3", edgecolor="#a9c8e0", linewidth=0.4, zorder=1)
     green.plot(ax=ax, color="#dcecd6", edgecolor="#b7d4ad", linewidth=0.3, zorder=1)
@@ -76,6 +84,8 @@ def main() -> int:
 
     sport.geometry.centroid.plot(ax=ax, markersize=9, color="#7b3294",
                                  alpha=0.65, zorder=4)
+    if loops is not None and len(loops):
+        loops.plot(ax=ax, color="#111111", linewidth=2.4, zorder=6)
 
     sm = plt.cm.ScalarMappable(cmap="RdYlGn", norm=plt.Normalize(vmin=25, vmax=70))
     cb = fig.colorbar(sm, ax=ax, fraction=0.028, pad=0.02)

@@ -67,14 +67,16 @@ def build_mosaic(bbox) -> tuple[np.ndarray, dict]:
             b = src.bounds
             if b.right <= lon0 or b.left >= lon1 or b.top <= lat0 or b.bottom >= lat1:
                 continue
+            # NB: with boundless=True GDAL returns the window in bbox space, padded
+            # with 0 outside the tile, so it can be composited 1:1 at the origin.
             win = from_bounds(lon0, lat0, lon1, lat1, src.transform)
             data = src.read(1, window=win, boundless=True, fill_value=0)
-            c0 = int(round((max(b.left, lon0) - lon0) / res))
-            r0 = int(round((lat1 - min(b.top, lat1)) / res))
-            h, w = data.shape
-            arr[r0:r0 + h, c0:c0 + w] = data[: height - r0, : width - c0]
-            filled[r0:r0 + h, c0:c0 + w] = True
-            print(f"  {t}: {h}x{w} px pasted")
+            h = min(data.shape[0], height)
+            w = min(data.shape[1], width)
+            valid = data[:h, :w] > 0
+            arr[:h, :w][valid] = data[:h, :w][valid]
+            filled[:h, :w] |= valid
+            print(f"  {t}: {int(valid.sum()):,} px of {h}x{w} pasted")
 
     if (~filled).any():
         print(f"  uncovered pixels: {(~filled).sum():,} (filled with 0)")

@@ -161,8 +161,8 @@
 
     <button class="cta">生成推荐环线</button>
     <div class="meta">
-      评分口径：安全 0.30 + 绿化 0.25 + 坡度 0.20 + 过街 0.10 + 设施 0.10<br>
-      数据：OSM 路网 / SRTM 30 m 坡度 / ESA 10 m 树冠 / 高德运动场馆
+      环线权重：避开主干道 0.39 + 绿化 0.39 + 平坦 0.23<br>
+      路网：OSM · 坡度：SRTM 30 m · 树冠：ESA 10 m · 场馆：高德
     </div>
   </section>
 
@@ -170,7 +170,6 @@
   <section class="card map">
     <img src="../../data/output/running/v1/map_layer.png" alt="慢跑适宜性地图">
     <div class="tag"><b>东湖片区</b> · 14,684 段评分路网</div>
-    <div class="origin-mark"></div>
     <div class="legend">
       <b>慢跑适宜性</b>
       <div class="bar"></div>
@@ -186,47 +185,41 @@
     <div>
       <h3 style="margin:0 0 6px;font-size:13px;color:var(--muted);letter-spacing:.4px">推荐环线</h3>
       <div class="score-head">
-        <span class="big num">82</span>
+        <span class="big num">78.5</span>
         <span class="u">/ 100</span>
         <span class="pill">很适宜</span>
       </div>
     </div>
 
     <div class="kpis">
-      <div class="kpi"><span>距离</span><b class="num">5.2 km</b></div>
+      <div class="kpi"><span>距离</span><b class="num">5.34 km</b></div>
       <div class="kpi"><span>预计用时</span><b class="num">32 min</b></div>
-      <div class="kpi"><span>绿地 / 滨水</span><b class="num">68%</b></div>
-      <div class="kpi"><span>累计爬升</span><b class="num">34 m</b></div>
-      <div class="kpi"><span>过街口</span><b class="num">12</b></div>
-      <div class="kpi"><span>补给点</span><b class="num">3</b></div>
+      <div class="kpi"><span>树冠覆盖</span><b class="num">58%</b></div>
+      <div class="kpi"><span>平均坡度</span><b class="num">3.5%</b></div>
+      <div class="kpi"><span>最近场馆</span><b class="num">240 m</b></div>
+      <div class="kpi"><span>起点偏差</span><b class="num">2 m</b></div>
     </div>
 
     <div class="bars">
       <div class="bar-row">
-        <div class="t"><span>安全（避开主干道）</span><span class="num">79</span></div>
-        <div class="track"><div class="fill" style="width:79%"></div></div>
+        <div class="t"><span>安全（避开主干道）</span><span class="num">84</span></div>
+        <div class="track"><div class="fill" style="width:84%"></div></div>
       </div>
       <div class="bar-row">
-        <div class="t"><span>绿化与滨水</span><span class="num">88</span></div>
-        <div class="track"><div class="fill" style="width:88%"></div></div>
+        <div class="t"><span>绿化与滨水</span><span class="num">81</span></div>
+        <div class="track"><div class="fill" style="width:81%"></div></div>
       </div>
       <div class="bar-row">
-        <div class="t"><span>坡度平缓</span><span class="num">64</span></div>
-        <div class="track"><div class="fill mid" style="width:64%"></div></div>
+        <div class="t"><span>坡度平缓</span><span class="num">65</span></div>
+        <div class="track"><div class="fill mid" style="width:65%"></div></div>
       </div>
-      <div class="bar-row">
-        <div class="t"><span>过街友好</span><span class="num">71</span></div>
-        <div class="track"><div class="fill" style="width:71%"></div></div>
       </div>
-      <div class="bar-row">
-        <div class="t"><span>设施配套</span><span class="num">46</span></div>
-        <div class="track"><div class="fill low" style="width:46%"></div></div>
       </div>
     </div>
 
     <div class="note">
-      设施分按到最近运动场馆的步行距离衰减（0 m → 100，500 m → 37）。
-      场馆来自高德 4,081 个点位；远城区场馆稀疏，分数偏低反映真实供给不足。
+      环线由「半程折返 + 去程边惩罚」生成：先找 2.5 km 外的折点，
+      去程与回程禁止重走同一段路。综合分按 安全 0.30 / 绿化 0.25 / 坡度 0.20 加权。
       坡度来自 SRTM 30 m，城区精度约 ±1 个百分点。
     </div>
   </section>
