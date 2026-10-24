@@ -32,6 +32,8 @@ RUN = ROOT / "data" / "processed" / "running" / "v1"
 CACHE = ROOT / "data" / "processed" / "running" / "graph"
 
 RUN_SPEED_MPS = 2.78          # 10 km/h
+RETRACE_PENALTY = 4.0         # 回程重走去程边的代价倍数；实测 4 与 20 的残余率相同（~4%），
+                              # 但 20 会把候选从 13 条压到 9 条，故取 4
 ATTRS = ["score", "tree_share", "slope_mean_pct", "cross_200m", "d_fac_m"]
 PREF_KEYS = {"green": "s_green", "flat": "s_slope", "safe": "s_safety"}
 
@@ -265,7 +267,7 @@ def generate_loops(
                 lo, hi = indptr[u], indptr[u + 1]
                 pos = lo + np.searchsorted(indices[lo:hi], v)
                 if pos < hi and indices[pos] == v:
-                    data[pos] *= 4.0
+                    data[pos] *= RETRACE_PENALTY
         cost_back = csr_matrix((data, indices, indptr), shape=cost.shape)
         dd, pred_back = dijkstra(
             cost_back, directed=True, indices=via, return_predecessors=True

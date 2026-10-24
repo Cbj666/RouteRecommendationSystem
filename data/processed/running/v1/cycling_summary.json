@@ -1,0 +1,17 @@
+{
+  "weights": {
+    "safety": 0.35,
+    "green": 0.15,
+    "slope": 0.3,
+    "cross": 0.1,
+    "fac": 0.1
+  },
+  "slope_zero_pct": 6.0,
+  "cycleway_bonus": 12.0,
+  "segments": 91203,
+  "cycling_median": 56.5,
+  "running_median": 51.7,
+  "cycleway_segments": 927,
+  "steep_penalised": 3015,
+  "note": "骑行在陡坡段应明显低于跑步；cycleway 段应明显高于同位置普通路。"
+}

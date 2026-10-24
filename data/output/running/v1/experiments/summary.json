@@ -1,0 +1,16 @@
+{
+  "notes": [
+    "retrace_edges 应为 0：算法对去程边双向惩罚",
+    "turns/zigzag 越低越接近手工设计的环线",
+    "3 km 档候选数量是已知短板"
+  ],
+  "means": {
+    "turns": 34.9,
+    "zigzag": 13.7,
+    "length_error": 0.046
+  },
+  "by_target": {
+    "3000": 6,
+    "5000": 6
+  }
+}
