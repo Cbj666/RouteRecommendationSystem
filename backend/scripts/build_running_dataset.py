@@ -104,6 +104,19 @@ def main() -> int:
     seg = seg.merge(slope, on="osm_id", how="left")
     seg["slope_mean_pct"] = seg["slope_mean_pct"].fillna(0.0)
 
+    canopy_csv = OUT / "segment_canopy.csv"
+    if canopy_csv.exists():
+        can = pd.read_csv(canopy_csv)[["osm_id", "tree_share", "green_share", "tree_share_max"]]
+        seg = seg.merge(can, on="osm_id", how="left")
+        print(f"[run] canopy merged: tree mean {seg['tree_share'].mean():.3f}")
+    else:
+        print("[run] WARNING: segment_canopy.csv missing, run build_canopy.py", file=sys.stderr)
+        seg["tree_share"] = np.nan
+        seg["green_share"] = np.nan
+        seg["tree_share_max"] = np.nan
+    seg["tree_share"] = seg["tree_share"].fillna(0.0)
+    seg["green_share"] = seg["green_share"].fillna(0.0)
+
     print("[run] reading green / water / facilities ...")
     land = pyogrio.read_dataframe(GPKG, layer="gis_osm_landuse_a_free", bbox=bbox)
     green = land[land["fclass"].isin(GREEN_FCLASS)].to_crs(CRS)
@@ -160,9 +173,13 @@ def main() -> int:
     # close to a major road is worse even on a minor street
     s_safety = np.clip(s_safety - np.where(d_main < 50, 15, 0) - np.where(d_main < 20, 10, 0), 0, 100)
 
-    s_green = np.clip(100 * (1 - d_green / MAX_GREEN_M), 0, 100)
-    s_water = np.clip(100 * (1 - d_water / MAX_WATER_M), 0, 100)
-    s_green = 0.7 * s_green + 0.3 * s_water
+    # green = measured canopy (70%) + proximity to a green area (30%).
+    # WorldCover resolution misses single street trees, so the distance term
+    # keeps "next to a park but under no canopy" from scoring zero.
+    shade = 0.8 * seg["tree_share"].to_numpy() + 0.2 * seg["green_share"].to_numpy()
+    canopy_score = 100 * (1 - np.exp(-2.5 * shade))
+    near_score = np.clip(100 * (1 - d_green / MAX_GREEN_M), 0, 100)
+    s_green = 0.7 * canopy_score + 0.3 * near_score
 
     s_slope = np.clip(100 * (1 - seg["slope_mean_pct"].to_numpy() / SLOPE_ZERO), 0, 100)
     s_cross = np.clip(100 - 7 * cross_counts, 0, 100)
@@ -186,7 +203,8 @@ def main() -> int:
 
     keep = [
         "osm_id", "fclass", "name", "length_m", "walk_group", "in_boundary",
-        "slope_mean_pct", "elev_gain_m", "d_green_m", "d_water_m", "d_main_m",
+        "slope_mean_pct", "elev_gain_m", "tree_share", "green_share",
+        "d_green_m", "d_water_m", "d_main_m",
         "cross_200m", "fac_500m", "s_safety", "s_green", "s_slope",
         "s_cross", "s_fac", "score", "grade", "geometry",
     ]
@@ -211,7 +229,7 @@ def main() -> int:
         },
         "notes": [
             "坡度来自 SRTM 1\"，150 m 高斯平滑后求梯度；城区精度约 ±1 个百分点",
-            "绿化用 landuse 多边形距离代理，不是实测绿视率",
+            "绿化用 ESA WorldCover 10 m 树冠覆盖率（120 m 窗口），比街景绿视率更不受拍摄点影响",
             "机动车暴露用道路等级 + 距主干道距离代理，无路段流量数据",
             "POI 来自 OSM，覆盖弱于商业地图，设施计数偏低",
         ],

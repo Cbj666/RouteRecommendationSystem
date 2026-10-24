@@ -66,14 +66,14 @@ def main() -> int:
          "footway": 1.1, "path": 1.0, "cycleway": 1.4, "pedestrian": 1.2}
     ).fillna(0.9)
     s.plot(
-        ax=ax, column="score", cmap="RdYlGn", vmin=30, vmax=85,
+        ax=ax, column="score", cmap="RdYlGn", vmin=25, vmax=70,
         linewidth=lw, zorder=3, legend=False,
     )
 
     sport.geometry.centroid.plot(ax=ax, markersize=9, color="#7b3294",
                                  alpha=0.65, zorder=4)
 
-    sm = plt.cm.ScalarMappable(cmap="RdYlGn", norm=plt.Normalize(vmin=30, vmax=85))
+    sm = plt.cm.ScalarMappable(cmap="RdYlGn", norm=plt.Normalize(vmin=25, vmax=70))
     cb = fig.colorbar(sm, ax=ax, fraction=0.028, pad=0.02)
     cb.set_label("慢跑适宜性评分（0–100）", fontsize=11)
 
@@ -95,7 +95,7 @@ def main() -> int:
     fig.text(
         0.02, 0.015,
         "评分 = 安全 0.30 + 绿化 0.25 + 坡度 0.20 + 过街 0.10 + 设施 0.10   |   "
-        "数据：OSM 路网 / SRTM 30 m / OSM POI（绿化与机动车暴露为代理指标）",
+        "数据：OSM 路网 / SRTM 30 m 坡度 / ESA WorldCover 10 m 树冠 / OSM POI",
         fontsize=8.5, color="#555555",
     )
     target = OUT / "map_donghu.png"
