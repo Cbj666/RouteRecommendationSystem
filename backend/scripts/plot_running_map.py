@@ -112,7 +112,7 @@ def main() -> int:
     fig.set_size_inches(12, 9)
     fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
     layer = OUT / "map_layer.png"
-    fig.savefig(layer, pad_inches=0, facecolor="#f4f7f6")
+    fig.savefig(layer, bbox_inches="tight", pad_inches=0, facecolor="#f4f7f6")
     print("wrote", layer.relative_to(ROOT))
     print(f"segments in view: {len(seg)}")
     return 0
