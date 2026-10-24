@@ -128,9 +128,35 @@ def main() -> int:
     water = water.to_crs(CRS)
     water_tree = shapely.STRtree(water.geometry.to_numpy()) if len(water) else None
 
+    # facilities = Amap sports POIs (dense, commercial source) + OSM support POIs
+    parts = []
+    amap_csv = OUT / "amap_sport_poi.csv"
+    if amap_csv.exists():
+        am = pd.read_csv(amap_csv)
+        am = am[am["in_boundary"].astype(bool)].dropna(subset=["lng", "lat"])
+        # billiards / card rooms / arcades are indoor entertainment, not running support
+        drop = am["type"].fillna("").str.contains("台球|棋牌|游戏|歌舞|夜总会|网吧|KTV", regex=True)
+        print(f"[run] amap sports POIs: {len(am):,} -> {int((~drop).sum()):,} after dropping indoor entertainment")
+        am = am[~drop]
+        parts.append(gpd.GeoDataFrame(
+            am[["poi_id", "name"]].copy(),
+            geometry=gpd.GeoSeries(shapely.points(am["lng"], am["lat"]), crs=4326),
+            crs=4326,
+        ).to_crs(CRS))
+        print(f"[run] amap sports POIs: {len(am):,}")
+    else:
+        print("[run] WARNING: amap_sport_poi.csv missing, facilities from OSM only", file=sys.stderr)
+
     poi = gpd.read_file(V1 / "poi.gpkg", layer="poi_points")
     poi = poi[poi["fclass"].isin(FAC_FCLASS)].to_crs(CRS)
+    parts.append(poi[["poi_id", "name"]].assign(name=poi["name"].fillna("")))
+
+    fac = gpd.GeoDataFrame(pd.concat(parts, ignore_index=True), geometry="geometry", crs=CRS)
+    fac = fac[fac.geometry.notna() & ~fac.geometry.is_empty].copy()
+    fac = fac[np.isfinite(fac.geometry.x) & np.isfinite(fac.geometry.y)]
+    poi = fac
     poi_tree = cKDTree(np.column_stack([poi.geometry.x, poi.geometry.y])) if len(poi) else None
+    print(f"[run] facility points: {len(poi):,}")
 
     main_roads = seg[seg["fclass"].isin(
         ["primary", "primary_link", "secondary", "secondary_link", "trunk", "motorway"]
@@ -157,16 +183,20 @@ def main() -> int:
 
     print("[run] counts ...")
     cross_counts = np.array([len(x) for x in inter_tree.query_ball_point(mid_xy, r=200.0)])
-    fac_counts = (
-        np.array([len(x) for x in poi_tree.query_ball_point(mid_xy, r=500.0)])
-        if poi_tree is not None else np.zeros(len(seg))
-    )
+    if poi_tree is not None:
+        d_fac, _ = poi_tree.query(mid_xy, k=1)
+        d_fac = np.asarray(d_fac, dtype=float)
+        fac_counts = np.array([len(x) for x in poi_tree.query_ball_point(mid_xy, r=500.0)])
+    else:
+        d_fac = np.full(len(seg), np.inf)
+        fac_counts = np.zeros(len(seg))
 
     # --- sub-scores ------------------------------------------------------
     seg["d_green_m"] = np.round(d_green, 1)
     seg["d_water_m"] = np.round(d_water, 1)
     seg["d_main_m"] = np.round(d_main, 1)
     seg["cross_200m"] = cross_counts
+    seg["d_fac_m"] = np.round(d_fac, 0)
     seg["fac_500m"] = fac_counts
 
     s_safety = seg["fclass"].map(ROAD_SAFETY).fillna(50.0).to_numpy(dtype=float)
@@ -183,7 +213,8 @@ def main() -> int:
 
     s_slope = np.clip(100 * (1 - seg["slope_mean_pct"].to_numpy() / SLOPE_ZERO), 0, 100)
     s_cross = np.clip(100 - 7 * cross_counts, 0, 100)
-    s_fac = np.clip(15 * fac_counts, 0, 100)
+    # decay with walking distance: 0 m -> 100, 500 m -> 37, 1 km -> 14
+    s_fac = 100 * np.exp(-d_fac / 500.0)
 
     seg["s_safety"] = np.round(s_safety, 1)
     seg["s_green"] = np.round(s_green, 1)
@@ -204,7 +235,7 @@ def main() -> int:
     keep = [
         "osm_id", "fclass", "name", "length_m", "walk_group", "in_boundary",
         "slope_mean_pct", "elev_gain_m", "tree_share", "green_share",
-        "d_green_m", "d_water_m", "d_main_m",
+        "d_green_m", "d_water_m", "d_main_m", "d_fac_m",
         "cross_200m", "fac_500m", "s_safety", "s_green", "s_slope",
         "s_cross", "s_fac", "score", "grade", "geometry",
     ]
@@ -231,7 +262,7 @@ def main() -> int:
             "坡度来自 SRTM 1\"，150 m 高斯平滑后求梯度；城区精度约 ±1 个百分点",
             "绿化用 ESA WorldCover 10 m 树冠覆盖率（120 m 窗口），比街景绿视率更不受拍摄点影响",
             "机动车暴露用道路等级 + 距主干道距离代理，无路段流量数据",
-            "POI 来自 OSM，覆盖弱于商业地图，设施计数偏低",
+            "设施 = 高德运动场馆 POI（4,081 个）+ OSM 公园/厕所/便利店，按到最近场馆的步行距离衰减",
         ],
     }
     (OUT / "score_summary.json").write_text(

@@ -48,10 +48,14 @@ def main() -> int:
     green = land[land["fclass"].isin(GREEN)]
     water = pyogrio.read_dataframe(GPKG, layer="gis_osm_water_a_free", bbox=SHOWCASE).to_crs(32650)
 
-    poi = gpd.read_file(V1 / "poi.gpkg", layer="poi_points").to_crs(32650)
-    sport = poi[poi["fclass"].isin(
-        ["pitch", "track", "sports_centre", "stadium", "playground", "park"]
-    )]
+    amap = pd.read_csv(ROOT / "data" / "processed" / "running" / "v1" / "amap_sport_poi.csv")
+    amap = amap[~amap["type"].fillna("").str.contains("台球|棋牌|游戏|歌舞|夜总会|网吧|KTV", regex=True)]
+    sport = gpd.GeoDataFrame(
+        amap[["name"]].copy(),
+        geometry=gpd.GeoSeries(shapely.points(amap["lng"], amap["lat"]), crs=4326),
+        crs=4326,
+    ).to_crs(32650)
+    sport = sport.cx[west:east, south:north]
 
     fig, ax = plt.subplots(figsize=(13, 10), dpi=170)
     water.plot(ax=ax, color="#cfe3f3", edgecolor="#a9c8e0", linewidth=0.4, zorder=1)
@@ -81,7 +85,7 @@ def main() -> int:
 
     handles = [
         Line2D([0], [0], color="#7b3294", marker="o", linestyle="none",
-               markersize=7, label="运动场地 / 公园（OSM）"),
+               markersize=7, label="运动场馆（高德）"),
         plt.Rectangle((0, 0), 1, 1, color="#dcecd6", label="绿地"),
         plt.Rectangle((0, 0), 1, 1, color="#cfe3f3", label="水体"),
     ]
@@ -95,7 +99,7 @@ def main() -> int:
     fig.text(
         0.02, 0.015,
         "评分 = 安全 0.30 + 绿化 0.25 + 坡度 0.20 + 过街 0.10 + 设施 0.10   |   "
-        "数据：OSM 路网 / SRTM 30 m 坡度 / ESA WorldCover 10 m 树冠 / OSM POI",
+        "数据：OSM 路网 / SRTM 30 m 坡度 / ESA WorldCover 10 m 树冠 / 高德运动场馆 POI",
         fontsize=8.5, color="#555555",
     )
     target = OUT / "map_donghu.png"
