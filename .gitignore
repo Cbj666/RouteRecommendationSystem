@@ -77,3 +77,6 @@ data/output/running/v1/demo/_*.npy
 data/output/running/v1/demo/_*.npz
 data/output/running/v1/demo/_*.csv
 presentation/.zcode/
+
+# ---------- Office / WPS 打开文件时产生的锁 ----------
+~\$*
