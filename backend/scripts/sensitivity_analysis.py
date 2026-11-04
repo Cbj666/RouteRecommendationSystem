@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """敏感性分析骨架（卡片 3）。
 
 做三件事，结果写到 data/output/running/v1/sensitivity/：
@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 RUN = ROOT / "data" / "processed" / "running" / "v1"
 OUT = ROOT / "data" / "output" / "running" / "v1" / "sensitivity"
 
-BASE_W = {"safety": 0.30, "green": 0.25, "slope": 0.20, "cross": 0.10, "fac": 0.10}
+BASE_W = {"safety": 0.25, "green": 0.25, "slope": 0.15, "cross": 0.10, "fac": 0.05, "air": 0.15}
 
 
 def score_with(df: pd.DataFrame, w: dict[str, float]) -> np.ndarray:
@@ -48,7 +48,7 @@ def main() -> int:
 
     print("[sens] 读取评分表 ...")
     gdf = gpd.read_file(gpkg, layer="segments", columns=[
-        "score", "s_safety", "s_green", "s_slope", "s_cross", "s_fac", "length_m",
+        "score", "s_safety", "s_green", "s_slope", "s_cross", "s_fac", "s_air", "length_m",
     ])
     base = score_with(gdf, BASE_W)
     gdf["base"] = base
@@ -73,10 +73,10 @@ def main() -> int:
 
     # 2) 替代方案
     alternatives = {
-        "equal": {k: 0.2 for k in BASE_W},
-        "ahp_like": {"safety": 0.35, "green": 0.25, "slope": 0.20, "cross": 0.10, "fac": 0.10},
-        "terrain_first": {"safety": 0.20, "green": 0.20, "slope": 0.40, "cross": 0.10, "fac": 0.10},
-        "comfort_first": {"safety": 0.20, "green": 0.35, "slope": 0.30, "cross": 0.05, "fac": 0.10},
+        "equal": {k: 0.95 / 6 for k in BASE_W},
+        "ahp_like": {"safety": 0.32, "green": 0.27, "slope": 0.17, "cross": 0.09, "fac": 0.05, "air": 0.10},
+        "terrain_first": {"safety": 0.20, "green": 0.20, "slope": 0.40, "cross": 0.10, "fac": 0.05, "air": 0.05},
+        "comfort_first": {"safety": 0.20, "green": 0.35, "slope": 0.30, "cross": 0.05, "fac": 0.05, "air": 0.05},
     }
     for name, w in alternatives.items():
         s = score_with(gdf, w)

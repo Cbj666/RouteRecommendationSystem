@@ -68,9 +68,9 @@ tools/           一次性历史脚本
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
 
-# 2. 数据（raw 不入库，见 data/README.md）
+# 2. 数据（raw 不入库，见 data/docs/项目交接说明.md）
 .\.venv\Scripts\python.exe backend\scripts\fetch_dem.py
-# WorldCover：data/raw/worldcover/ 下 4 个 .tif，见 docs/数据补充清单.md
+# WorldCover：data/raw/worldcover/ 下 4 个 .tif，见 docs/数据/数据补充清单.md
 
 # 3. 计算
 .\.venv\Scripts\python.exe backend\scripts\build_slope.py
@@ -85,10 +85,10 @@ python -m venv .venv
 
 ## 关键文档
 
-- [项目进度与交接说明.md](项目进度与交接说明.md) —— 进度真相来源
-- [docs/项目说明书-v4.0.md](docs/项目说明书-v4.0.md) —— 答辩主文档（Word 版同名 .docx）
-- [docs/开发进展-慢跑适宜性与环线.md](docs/开发进展-慢跑适宜性与环线.md)
-- [docs/数据字典-跑步数据集.md](docs/数据字典-跑步数据集.md)
+- [docs/项目交接说明.md](docs/项目交接说明.md) —— 进度真相来源
+- [docs/项目说明书.md](docs/项目说明书.md) —— 答辩主文档（Word 版同名 .docx）
+- [docs/过程/开发进展-慢跑适宜性与环线.md](docs/过程/开发进展-慢跑适宜性与环线.md)
+- [docs/数据/数据字典-跑步数据集.md](docs/数据/数据字典-跑步数据集.md)
 - [AGENTS.md](AGENTS.md) —— 用 AI 协作者时先喂这份
 
 ## 已知限制（写进报告，不要说反）

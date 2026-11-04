@@ -1,98 +1,111 @@
 {
   "baseline_weights": {
-    "safety": 0.3,
+    "safety": 0.25,
     "green": 0.25,
-    "slope": 0.2,
+    "slope": 0.15,
     "cross": 0.1,
-    "fac": 0.1
+    "fac": 0.05,
+    "air": 0.15
   },
   "segments": 91203,
-  "min_spearman": 0.8894,
-  "min_top10_overlap": 0.6632,
+  "min_spearman": 0.8628,
+  "min_top10_overlap": 0.6257,
   "rows": [
     {
       "scenario": "safety_+80%",
-      "spearman": 0.9954,
-      "top10_overlap": 0.9445,
-      "mean_shift": 0.07
+      "spearman": 0.9951,
+      "top10_overlap": 0.9341,
+      "mean_shift": 0.09
     },
     {
       "scenario": "safety_+120%",
-      "spearman": 0.9974,
-      "top10_overlap": 0.9503,
-      "mean_shift": -0.06
+      "spearman": 0.9969,
+      "top10_overlap": 0.9406,
+      "mean_shift": -0.08
     },
     {
       "scenario": "green_+80%",
-      "spearman": 0.9956,
-      "top10_overlap": 0.9416,
-      "mean_shift": 0.49
+      "spearman": 0.9941,
+      "top10_overlap": 0.9355,
+      "mean_shift": 0.53
     },
     {
       "scenario": "green_+120%",
-      "spearman": 0.9967,
-      "top10_overlap": 0.9531,
-      "mean_shift": -0.44
+      "spearman": 0.9958,
+      "top10_overlap": 0.9491,
+      "mean_shift": -0.47
     },
     {
       "scenario": "slope_+80%",
-      "spearman": 0.9974,
-      "top10_overlap": 0.9695,
-      "mean_shift": -1.32
+      "spearman": 0.9982,
+      "top10_overlap": 0.9647,
+      "mean_shift": -0.96
     },
     {
       "scenario": "slope_+120%",
-      "spearman": 0.9976,
-      "top10_overlap": 0.9723,
-      "mean_shift": 1.21
+      "spearman": 0.9982,
+      "top10_overlap": 0.9683,
+      "mean_shift": 0.9
     },
     {
       "scenario": "cross_+80%",
-      "spearman": 0.9964,
-      "top10_overlap": 0.944,
-      "mean_shift": 0.07
+      "spearman": 0.9959,
+      "top10_overlap": 0.9259,
+      "mean_shift": 0.09
     },
     {
       "scenario": "cross_+120%",
-      "spearman": 0.9965,
-      "top10_overlap": 0.9418,
-      "mean_shift": -0.07
+      "spearman": 0.9963,
+      "top10_overlap": 0.9304,
+      "mean_shift": -0.08
     },
     {
       "scenario": "fac_+80%",
-      "spearman": 0.9982,
-      "top10_overlap": 0.9572,
-      "mean_shift": 0.68
+      "spearman": 0.9995,
+      "top10_overlap": 0.9758,
+      "mean_shift": 0.34
     },
     {
       "scenario": "fac_+120%",
-      "spearman": 0.9984,
-      "top10_overlap": 0.9595,
-      "mean_shift": -0.65
+      "spearman": 0.9995,
+      "top10_overlap": 0.9738,
+      "mean_shift": -0.34
+    },
+    {
+      "scenario": "air_+80%",
+      "spearman": 0.9989,
+      "top10_overlap": 0.9661,
+      "mean_shift": -0.08
+    },
+    {
+      "scenario": "air_+120%",
+      "spearman": 0.9989,
+      "top10_overlap": 0.9625,
+      "mean_shift": 0.08
     },
     {
       "scenario": "alt_equal",
-      "spearman": 0.8894,
-      "top10_overlap": 0.6632,
-      "mean_shift": -2.95
+      "spearman": 0.8849,
+      "top10_overlap": 0.6257,
+      "mean_shift": -2.56
     },
     {
       "scenario": "alt_ahp_like",
-      "spearman": 0.9981,
-      "top10_overlap": 0.958,
-      "mean_shift": -0.05
+      "spearman": 0.9834,
+      "top10_overlap": 0.8641,
+      "mean_shift": 0.19
     },
     {
       "scenario": "alt_terrain_first",
-      "spearman": 0.9029,
-      "top10_overlap": 0.7989,
-      "mean_shift": 6.55
+      "spearman": 0.8628,
+      "top10_overlap": 0.7348,
+      "mean_shift": 7.65
     },
     {
       "scenario": "alt_comfort_first",
-      "spearman": 0.9427,
-      "top10_overlap": 0.8283,
-      "mean_shift": 2.4
+      "spearman": 0.8995,
+      "top10_overlap": 0.745,
+      "mean_shift": 3.49
     }
   ],
   "note": "spearman/top10_overlap 越高说明该扰动不改变结论；低于 0.9 / 0.8 时需要在报告里单独说明。"

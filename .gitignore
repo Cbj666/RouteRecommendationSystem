@@ -39,3 +39,41 @@ data/processed/running/graph/
 *.zip
 *.pbf
 *.7z
+
+# ---------- build/：只保留可复现的生成脚本，其余（渲染图 / 中间表 / 探针输出）不入库 ----------
+# 说明：不整体忽略 build/，也不把脚本搬到 tools/——脚本按 __file__ 推导项目根，
+# 搬目录会破坏相对路径；这里改成「目录逐个放行、文件逐个放行」。
+/build/*
+!/build/*.py
+!/build/ppt/
+!/build/proto/
+/build/ppt/*
+!/build/ppt/*.py
+/build/proto/*
+!/build/proto/*.py
+!/build/proto/*.html
+build/**/__pycache__/
+build/_probe.pdf
+
+# ---------- 文献全文（PDF 体积与版权，见 docs/literature/参考文献.md） ----------
+docs/literature/*.pdf
+
+# ---------- ppt-master 工作区（130 MB：SVG 中间页、渲染图、导出副本，可重建） ----------
+projects/
+
+# ---------- 可重建的空气边缓存（build/demo_routes.py 会重建） ----------
+data/processed/running/v1/edge_air_cache.npz
+
+# ---------- 空气分量的中间表（segment_air.csv 是二者合并后的成品） ----------
+data/processed/running/v1/segment_air_pm25.csv
+data/processed/running/v1/segment_air_no2.csv
+
+# ---------- 素材 PNG（36 张 15.6 MB，可用 build/make_geometry_assets*.py 重出，说明见 README） ----------
+presentation/素材/*.png
+
+# ---------- 探针临时产物（重跑即生，别入库） ----------
+build/_probe*
+data/output/running/v1/demo/_*.npy
+data/output/running/v1/demo/_*.npz
+data/output/running/v1/demo/_*.csv
+presentation/.zcode/

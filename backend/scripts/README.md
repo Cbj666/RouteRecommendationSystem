@@ -1,7 +1,7 @@
 # scripts —— 数据流水线脚本
 
 > 目录已迁移到 `backend/scripts/`（原来是根目录的 `scripts/`）。
-> 本文档是脚本层说明；算法内核见 `../app/`，整体入口见仓库根 `README.md`。
+> 本文档是脚本层说明；算法内核见 `../app/`，整体入口见仓库根 `docs/项目交接说明.md`。
 
 ## 运行环境
 
@@ -44,7 +44,7 @@ $env:PYTHONUNBUFFERED='1'
 | `merge_amap_bus.py` | 公交合并：站点聚类为 `station_key`、生成边与吸附 | |
 | `extract_amap_shapes.py` | 从 `raw_*.json` 的 `polyline` 提取线路几何 | |
 | `snap_metro_stations.py` | 地铁站点吸附到 OSM 道路 | |
-| `pilot_line.py` / `baidu_place.py` | 早期百度方案（已放弃） | 见 `docs/试点结果-百度站点定位与OSM叠合.md` |
+| `pilot_line.py` / `baidu_place.py` | 早期百度方案（已放弃） | 见 `docs/archive/公交与地铁试点/试点结果-百度站点定位与OSM叠合.md` |
 
 配额现状：`place/text` 5000/日、`bus/stopid` 10000/日、`bus/lineid` 5000/日、
 `bus/linename` 100/日。缓存目录 `data/cache/amap_pilot/`（68 MB）**不要删**。

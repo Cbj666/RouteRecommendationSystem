@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<title>原型复刻参考 · 跑步友好度 · 武汉</title>
+<!--
+  这是 PPT 里那张原型图的「可运行参考实现」，用途只有一个：
+  让前端组看到「同样的数据怎样画成同样的画面」。
+
+  · 样式（颜色、间距、字号）与 PPT 里的图 1:1 一致
+  · 地图不是背景图，而是由 segments_city.geojson 现场渲染出来的
+  · 环线来自 mocks/loops_5km_wuda.json（真实后端响应）
+  · 全部原生 JS + SVG，无任何依赖；看懂后照搬到 Vue + 地图库即可
+
+  跑法（在仓库根目录）：
+      .\.venv\Scripts\python.exe -m http.server 8080
+  然后打开 http://127.0.0.1:8080/frontend/reference/index.html
+-->
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1600px; height: 1000px; overflow: hidden; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    color: #1F2A26;
+    background: #F5F8F2;
+  }
+  /* 地图层：由 JS 注入 SVG，尺寸与画布一致 */
+  #map { position: absolute; inset: 0; }
+  #map svg { display: block; }
+
+  .glass {
+    background: rgba(255, 255, 255, .74);
+    backdrop-filter: blur(22px) saturate(1.2);
+    -webkit-backdrop-filter: blur(22px) saturate(1.2);
+    border: 1px solid rgba(255, 255, 255, .9);
+    box-shadow: 0 14px 44px rgba(18, 58, 44, .13);
+    border-radius: 0;
+  }
+
+  /* 顶栏 */
+  .topbar {
+    position: absolute; top: 0; left: 0; right: 0; height: 64px;
+    display: flex; align-items: center; gap: 28px;
+    padding: 0 28px;
+    background: rgba(255, 255, 255, .82);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(21, 80, 60, .08);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 700; letter-spacing: .5px; }
+  .dot { width: 22px; height: 22px; background: #15503C; position: relative; }
+  .dot::after { content: ""; position: absolute; inset: 6px; background: #fff; }
+  .tabs { display: flex; gap: 4px; margin-left: 8px; }
+  .tab { padding: 7px 16px; font-size: 15px; color: #5F6F68; }
+  .tab.on { background: #15503C; color: #fff; font-weight: 600; }
+  .search { margin-left: auto; font-size: 14px; color: #8A9A93; border: 1px solid #E2EAE5; padding: 8px 18px; width: 300px; background: rgba(255,255,255,.6); }
+
+  /* 左栏 */
+  .left { position: absolute; left: 24px; top: 88px; width: 306px; padding: 22px 22px 0; }
+  .label { font-size: 13px; color: #8A9A93; letter-spacing: 1px; margin-bottom: 10px; }
+  .origin { display: flex; gap: 10px; align-items: flex-start; padding-bottom: 18px; border-bottom: 1px solid #E6EDE9; }
+  .pin { width: 26px; height: 26px; background: #15503C; color: #fff; font-size: 13px; font-weight: 700; display: grid; place-items: center; flex: none; }
+  .origin b { display: block; font-size: 16px; margin-bottom: 4px; }
+  .origin span { font-size: 12.5px; color: #7E8E87; font-variant-numeric: tabular-nums; }
+
+  .row { margin-top: 20px; }
+  .segs { display: flex; gap: 8px; }
+  .seg { flex: 1; text-align: center; padding: 9px 0; font-size: 14px; border: 1px solid #DFE8E3; color: #5F6F68; }
+  .seg.on { background: #15503C; color: #fff; border-color: #15503C; font-weight: 600; }
+
+  .prefs { display: flex; flex-direction: column; }
+  .pref { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; font-size: 14.5px; border-bottom: 1px dashed #E9EFEC; }
+  .sw { width: 42px; height: 22px; background: #D7E0DA; position: relative; display: inline-block; }
+  .sw i { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .sw.on { background: #15503C; }
+  .sw.on i { left: 23px; }
+
+  .cta { display: block; width: calc(100% + 44px); margin: 26px 0 0 -22px; background: #15503C; color: #fff; text-align: center; padding: 17px 0; font-size: 16px; font-weight: 600; letter-spacing: 1px; }
+  .cta small { display: block; font-weight: 400; font-size: 11.5px; color: #BFD8CC; margin-top: 5px; letter-spacing: 0; }
+
+  /* 右栏 */
+  .right { position: absolute; right: 24px; top: 88px; width: 330px; padding: 24px; }
+  .rt { font-size: 13px; color: #8A9A93; letter-spacing: 1px; }
+  .score { display: flex; align-items: flex-end; gap: 8px; margin: 6px 0 2px; }
+  .score b { font-size: 54px; line-height: .95; color: #15503C; font-weight: 700; letter-spacing: -1px; }
+  .score i { font-style: normal; font-size: 15px; color: #8A9A93; padding-bottom: 6px; }
+  .badge { margin-left: auto; background: #E7F1EA; color: #15503C; font-size: 12.5px; padding: 4px 10px; align-self: center; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #E6EDE9; margin: 18px 0 0; }
+  .cell { background: rgba(255,255,255,.86); padding: 12px 12px 13px; }
+  .cell u { display: block; font-size: 11.5px; color: #8A9A93; text-decoration: none; margin-bottom: 5px; }
+  .cell b { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .bars { margin-top: 20px; }
+  .bar { display: grid; grid-template-columns: 74px 1fr 32px; align-items: center; gap: 10px; margin-bottom: 11px; font-size: 12.5px; color: #5F6F68; }
+  .track { display: block; height: 7px; background: #E3EAE6; }
+  .fill { display: block; height: 7px; background: #15503C; }
+  .fill.amber { background: #C0762A; }
+  .num { text-align: right; font-weight: 600; color: #1F2A26; font-variant-numeric: tabular-nums; }
+
+  .foot { position: absolute; left: 24px; bottom: 18px; font-size: 11.5px; color: #7E8E87; }
+  .legend { position: absolute; right: 380px; bottom: 24px; padding: 12px 16px; font-size: 12px; color: #5F6F68; }
+  .legend h5 { font-size: 12px; color: #1F2A26; font-weight: 600; margin-bottom: 8px; }
+  .lk { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .ramp { width: 118px; height: 8px; background: linear-gradient(90deg, #D94F4F, #E8A33D, #8FBF6A, #2E7A5D, #15503C); }
+  .lscale { display: flex; justify-content: space-between; width: 118px; font-size: 10.5px; color: #8A9A93; }
+
+  #err { position: absolute; left: 24px; top: 96px; z-index: 9; background: #FFF3F3; border: 1px solid #E8B4B4; color: #A33; padding: 12px 16px; font-size: 13px; max-width: 520px; display: none; }
+</style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="err"></div>
+
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>跑步友好度 · 武汉</div>
+    <div class="tabs">
+      <div class="tab on">适宜性地图</div>
+      <div class="tab">环线推荐</div>
+      <div class="tab">起点对比</div>
+    </div>
+    <div class="search">搜索起点：东湖绿道 / 珞珈山 / 江滩…</div>
+  </div>
+
+  <div class="left glass">
+    <div class="label">起点</div>
+    <div class="origin">
+      <div class="pin">起</div>
+      <div>
+        <b>武汉大学 · 八一路珞珈山</b>
+        <span>114.3547, 30.5342</span>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="label">路线模式</div>
+      <div class="segs">
+        <div class="seg on">环线</div>
+        <div class="seg">单行线 A→B</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="label">目标距离</div>
+      <div class="segs">
+        <div class="seg">3 km</div>
+        <div class="seg on">5 km</div>
+        <div class="seg">10 km</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="label">偏好</div>
+      <div class="prefs">
+        <div class="pref"><span>尽量绿荫 / 滨水</span><span class="sw on"><i></i></span></div>
+        <div class="pref"><span>避开机动车主干道</span><span class="sw on"><i></i></span></div>
+        <div class="pref"><span>尽量平坦</span><span class="sw"><i></i></span></div>
+        <div class="pref"><span>洗手间 / 补给点</span><span class="sw on"><i></i></span></div>
+      </div>
+    </div>
+
+    <div class="cta">生成路线<small>环线：半程折返 + 回程双向惩罚</small></div>
+  </div>
+
+  <div class="right glass">
+    <div class="rt">环线 · 第 1 条　回到起点</div>
+    <div class="score"><b>78.5</b><i>/ 100</i><span class="badge">很适宜</span></div>
+
+    <div class="grid2">
+      <div class="cell"><u>距离</u><b>5.34 km</b></div>
+      <div class="cell"><u>预计用时</u><b>32 min</b></div>
+      <div class="cell"><u>树冠覆盖</u><b>58%</b></div>
+      <div class="cell"><u>平均坡度</u><b>3.5%</b></div>
+      <div class="cell"><u>最近场馆</u><b>240 m</b></div>
+      <div class="cell"><u>起点偏差</u><b>2 m</b></div>
+    </div>
+
+    <div class="bars">
+      <div class="bar"><span>安全</span><span class="track"><span class="fill" style="width:84%"></span></span><span class="num">84</span></div>
+      <div class="bar"><span>绿化与滨水</span><span class="track"><span class="fill" style="width:81%"></span></span><span class="num">81</span></div>
+      <div class="bar"><span>坡度平缓</span><span class="track"><span class="fill amber" style="width:65%"></span></span><span class="num">65</span></div>
+    </div>
+
+    <div style="margin-top:16px;font-size:11.5px;color:#8A9A93;line-height:1.7;border-top:1px solid #E6EDE9;padding-top:12px">
+      环线由「半程折返 + 回程边罚」生成；综合分按 安全 0.25 / 绿化 0.25 / 坡度 0.15 / 过街 0.10 / 空气 0.15 / 设施 0.05 加权。
+    </div>
+  </div>
+
+  <div class="legend glass">
+    <h5>慢跑适宜性</h5>
+    <div class="ramp"></div>
+    <div class="lscale"><span>30</span><span>50</span><span>70</span><span>85</span></div>
+    <div class="lk"><span style="width:14px;height:3px;background:#1B1B1B;display:inline-block"></span>推荐环线 5.34 km</div>
+  </div>
+
+  <div class="foot">数据来源：OSM 路网 · SRTM 30 m 坡度 · ESA WorldCover 10 m 树冠 · CHAP 1 km 空气 · 高德场馆 POI</div>
+
+<script>
+/* ------------------------------------------------------------------
+ * 视图范围 = PPT 原型图视野。改这里就能换个地方画。
+ * 注意：这个 bbox 的经纬比（乘 cos 纬度后）正好 1.6 = 1600/1000，
+ * 所以下面用最简单的等距投影不会变形。换成别的 bbox 要自己调。
+ * ------------------------------------------------------------------ */
+const VIEW = { lon0: 114.305, lat0: 30.508, lon1: 114.405, lat1: 30.562 };
+const W = 1600, H = 1000;
+const D = '../../data/output/running/v1/web/';
+const M = '../../frontend/app/src/mocks/';
+
+const x = lon => (lon - VIEW.lon0) / (VIEW.lon1 - VIEW.lon0) * W;
+const y = lat => (VIEW.lat1 - lat) / (VIEW.lat1 - VIEW.lat0) * H;
+
+/* 色阶：与 matplotlib 版一致，t = clip((score-30)/42, 0, 1) */
+const STOPS = [[0, '#D94F4F'], [.25, '#E8A33D'], [.5, '#8FBF6A'], [.75, '#2E7A5D'], [1, '#15503C']];
+function ramp(t) {
+  t = Math.max(0, Math.min(1, t));
+  for (let i = 1; i < STOPS.length; i++) {
+    if (t <= STOPS[i][0]) {
+      const [t0, c0] = STOPS[i - 1], [t1, c1] = STOPS[i];
+      const k = (t - t0) / (t1 - t0);
+      const p = a => parseInt(c0.slice(1 + 2 * a, 3 + 2 * a), 16) * (1 - k)
+                    + parseInt(c1.slice(1 + 2 * a, 3 + 2 * a), 16) * k;
+      return `rgb(${p(0) | 0},${p(1) | 0},${p(2) | 0})`;
+    }
+  }
+  return STOPS[STOPS.length - 1][1];
+}
+
+const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+svg.setAttribute('width', W); svg.setAttribute('height', H);
+document.getElementById('map').appendChild(svg);
+
+function poly(coords, attrs) {
+  const d = coords.map(([lon, lat], i) => `${i ? 'L' : 'M'}${x(lon).toFixed(1)},${y(lat).toFixed(1)}`).join('');
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  el.setAttribute('d', d);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  svg.appendChild(el);
+  return el;
+}
+function ring(coords, attrs) {
+  const d = coords.map(([lon, lat], i) => `${i ? 'L' : 'M'}${x(lon).toFixed(1)},${y(lat).toFixed(1)}`).join('') + 'Z';
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  el.setAttribute('d', d); el.setAttribute('fill-rule', 'evenodd');
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  svg.appendChild(el);
+  return el;
+}
+
+const fail = msg => {
+  const e = document.getElementById('err');
+  e.style.display = 'block';
+  e.textContent = msg;
+  console.error(msg);
+};
+
+async function load(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${url} → HTTP ${r.status}`);
+  return r.json();
+}
+
+(async () => {
+  try {
+    /* 1) 绿地与水体（画在最底下，半透明，别抢路网的颜色） */
+    const wg = await load(D + 'water_green.geojson');
+    for (const f of wg.features) {
+      const kind = (f.properties.kind || f.properties.type || '').toLowerCase();
+      const water = kind.includes('water') || kind.includes('水');
+      const g = f.geometry, rings = g.type === 'Polygon' ? [g.coordinates]
+                  : g.type === 'MultiPolygon' ? g.coordinates : [];
+      for (const p of rings) for (const r of p)
+        ring(r, { fill: water ? '#CFE3F0' : '#DCEBDA', 'fill-opacity': .55, stroke: 'none' });
+    }
+
+    /* 2) 路网：按分数上色。先画低分再画高分，避免高分被盖住。
+       线宽 1.25 px ≈ matplotlib 端 linewidths=0.9 @ dpi 100，与 PPT 那张一致。 */
+    const net = await load(D + 'segments_city.geojson');
+    net.features.sort((a, b) => a.properties.score - b.properties.score);
+    for (const f of net.features) {
+      const s = f.properties.score;
+      const g = f.geometry;
+      if (!g) continue;
+      const parts = g.type === 'LineString' ? [g.coordinates] : g.coordinates;
+      for (const c of parts)
+        poly(c, { fill: 'none', stroke: ramp((s - 30) / 42), 'stroke-width': 1.25,
+                  'stroke-linecap': 'round', 'stroke-opacity': .95 });
+    }
+
+    /* 3) 环线：先白描边再黑实线（PPT 里就是「白 6.6pt + 黑 3.8pt」两层） */
+    const lp = await load(M + 'loops_5km_wuda.json');
+    const best = lp.features[0];
+    const g3 = best.geometry;
+    const parts3 = g3.type === 'LineString' ? [g3.coordinates] : g3.coordinates;
+    for (const c of parts3)
+      poly(c, { fill: 'none', stroke: '#FFFFFF', 'stroke-width': 9.2,
+                'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-opacity': .95 });
+    for (const c of parts3)
+      poly(c, { fill: 'none', stroke: '#141414', 'stroke-width': 5.3,
+                'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+
+    /* 4) 起点小圆：真实界面用地图库的 marker，这里画个圈示意 */
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    el.setAttribute('cx', x(114.3547)); el.setAttribute('cy', y(30.5342));
+    el.setAttribute('r', 6); el.setAttribute('fill', '#fff');
+    el.setAttribute('stroke', '#15503C'); el.setAttribute('stroke-width', 3);
+    svg.appendChild(el);
+
+    console.log('渲染完成：%d 段路网 / %d 个水绿面 / 环线 %.2f km',
+      net.features.length, wg.features.length, best.properties.length_m / 1000);
+  } catch (e) {
+    fail('数据没加载上：' + e.message +
+         '\n\n多半是直接双击打开了 index.html（file:// 下 fetch 会被浏览器拦）。' +
+         '\n请在仓库根目录跑：.\\\\.venv\\\\Scripts\\\\python.exe -m http.server 8080' +
+         '\n然后访问 http://127.0.0.1:8080/frontend/reference/index.html');
+  }
+})();
+</script>
+</body>
+</html>

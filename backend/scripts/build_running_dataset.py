@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Build the running/cycling suitability dataset (v0).
 
 One row per OSM road segment with a 0–100 suitability score and the
@@ -10,9 +10,10 @@ Indicators (all computable from data already in the repo)
     s_slope     DEM slope (build_slope.py) — flat is better for running
     s_cross     intersection density within 200 m (more crossings = more stops)
     s_fac       sports facilities / toilets / convenience stores within 300 m
+    s_air       annual NO2 from the CHAP 1 km grid (regional correction only)
 
-Weights live in WEIGHTS below and are deliberately explicit: this is a
-multi-criteria score, not a measurement.
+Weights live in W below and are deliberately explicit: this is a
+multi-criteria score, not a measurement. They sum to 0.95 by design (v1 口径).
 
 Output
     data/processed/running/v1/segments.gpkg      (layer segments)
@@ -40,7 +41,12 @@ GPKG = RAW / "hubei" / "hubei-261013-free-OpenMap" / "hubei.gpkg"
 CRS = 32650
 
 # --- scoring design -------------------------------------------------------
-W = {"safety": 0.30, "green": 0.25, "slope": 0.20, "cross": 0.10, "fac": 0.10}
+# 六维。权重合计 0.95（沿用 v1 口径，便于与旧版分数直接对比，不要改成 1.0）：
+# 加 s_air 时从 safety 让 0.05、从 fac 让 0.05，总分尺度不变。
+W = {
+    "safety": 0.25, "green": 0.25, "slope": 0.15,
+    "cross": 0.10, "fac": 0.05, "air": 0.15,
+}
 
 ROAD_SAFETY = {
     "footway": 95, "path": 90, "pedestrian": 95, "steps": 70, "cycleway": 92,
@@ -59,6 +65,14 @@ FAC_FCLASS = {
 MAX_GREEN_M = 1500.0
 MAX_WATER_M = 1500.0
 SLOPE_ZERO = 10.0     # %: at or above this, running suitability is 0
+
+# --- air quality ----------------------------------------------------------
+# 逐年 NO2（CHAP 1 km 网格，build_air_quality_chap.py 产出）。
+# 只做「区域校正」：同一圈层内道路等级之间的差异仅 0.2–1.8 µg/m³，
+# 而城区与外围差 9.9 µg/m³（见 data/output/running/v1/demo/README.md）。
+AIR_CSV = OUT / "segment_air.csv"
+NO2_FULL = 10.0       # WHO 2021 年均指导值 → 100 分
+NO2_ZERO = 40.0       # GB 3095—2012 二级年均限值 → 0 分
 
 
 def nearest_distance_upto(tree, target_geoms, pts, max_dist: float) -> np.ndarray:
@@ -222,9 +236,31 @@ def main() -> int:
     seg["s_cross"] = np.round(s_cross, 1)
     seg["s_fac"] = np.round(s_fac, 1)
 
+    # --- air: annual NO2 from the CHAP 1 km grid --------------------------
+    if not AIR_CSV.exists():
+        raise SystemExit(
+            f"缺少 {AIR_CSV.relative_to(ROOT)}\n"
+            "先跑：.\\\\.venv\\\\Scripts\\\\python.exe backend\\\\scripts\\\\build_air_quality_chap.py --year 2024"
+        )
+    air = pd.read_csv(
+        AIR_CSV, encoding="utf-8-sig", usecols=["osm_id", "pm25_ugm3", "no2_ugm3"]
+    ).set_index("osm_id")
+    no2 = seg["osm_id"].map(air["no2_ugm3"]).to_numpy(dtype=float)
+    pm25 = seg["osm_id"].map(air["pm25_ugm3"]).to_numpy(dtype=float)
+    n_nan = int(np.isnan(no2).sum())
+    no2 = np.where(np.isnan(no2), float(np.nanmedian(no2)), no2)
+    pm25 = np.where(np.isnan(pm25), float(np.nanmedian(pm25)), pm25)
+    # 100 分 = WHO 指导值，0 分 = 国标二级；线性插值，超出即截断
+    s_air = np.clip(100 * (NO2_ZERO - no2) / (NO2_ZERO - NO2_FULL), 0, 100)
+
+    seg["no2_ugm3"] = np.round(no2, 2)
+    seg["pm25_ugm3"] = np.round(pm25, 2)
+    seg["s_air"] = np.round(s_air, 1)
+    print(f"[run] air: NO2 中位 {np.median(no2):.1f}，缺值补城市中位 {n_nan} 段")
+
     seg["score"] = np.round(
         W["safety"] * s_safety + W["green"] * s_green + W["slope"] * s_slope
-        + W["cross"] * s_cross + W["fac"] * s_fac,
+        + W["cross"] * s_cross + W["fac"] * s_fac + W["air"] * s_air,
         1,
     )
     seg["grade"] = pd.cut(
@@ -236,8 +272,9 @@ def main() -> int:
         "osm_id", "fclass", "name", "length_m", "walk_group", "in_boundary",
         "slope_mean_pct", "elev_gain_m", "tree_share", "green_share",
         "d_green_m", "d_water_m", "d_main_m", "d_fac_m",
-        "cross_200m", "fac_500m", "s_safety", "s_green", "s_slope",
-        "s_cross", "s_fac", "score", "grade", "geometry",
+        "cross_200m", "fac_500m", "no2_ugm3", "pm25_ugm3",
+        "s_safety", "s_green", "s_slope",
+        "s_cross", "s_fac", "s_air", "score", "grade", "geometry",
     ]
     out = seg[[c for c in keep if c in seg.columns]].to_crs(4326)
     OUT.mkdir(parents=True, exist_ok=True)
@@ -256,12 +293,20 @@ def main() -> int:
         "grade_counts": {k: int(v) for k, v in out["grade"].value_counts().items()},
         "median_subscores": {
             k: round(float(out[k].median()), 1)
-            for k in ["s_safety", "s_green", "s_slope", "s_cross", "s_fac"]
+            for k in ["s_safety", "s_green", "s_slope", "s_cross", "s_fac", "s_air"]
+        },
+        "air": {
+            "source": "CHAP ChinaHighPM2.5 V4 / ChinaHighNO2 (1 km, Zenodo)",
+            "no2_median": round(float(out["no2_ugm3"].median()), 2),
+            "pm25_median": round(float(out["pm25_ugm3"].median()), 2),
+            "formula": f"s_air = clip(100*(NO2 {NO2_ZERO:.0f} -> 0, {NO2_FULL:.0f} -> 100), 0, 100)",
+            "note": "只做区域校正；同圈层内道路等级差异仅 0.2–1.8 µg/m³，不用于逐段区分",
         },
         "notes": [
             "坡度来自 SRTM 1\"，150 m 高斯平滑后求梯度；城区精度约 ±1 个百分点",
             "绿化用 ESA WorldCover 10 m 树冠覆盖率（120 m 窗口），比街景绿视率更不受拍摄点影响",
             "机动车暴露用道路等级 + 距主干道距离代理，无路段流量数据",
+            "空气用 CHAP 1 km 年均 NO2：满分=WHO 2021 指导值 10，零分=国标二级 40",
             "设施 = 高德运动场馆 POI（4,081 个）+ OSM 公园/厕所/便利店，按到最近场馆的步行距离衰减",
         ],
     }

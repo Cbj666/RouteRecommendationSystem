@@ -1,0 +1,3029 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Benefit Fitness",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35179131072964,
+     30.564037554973037
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Boss台球俱乐部(龙源国际店)",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3370940906286,
+     30.55712432706296
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "COCO游泳运动中心(凯德1818店)",
+    "type": "体育休闲服务;运动场馆;游泳馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33502850735154,
+     30.55518381851173
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "DDP一天一练普拉提(梦时代店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33677678482567,
+     30.53187943501554
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Fat Cat 24小时自助舞室",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.331763098856,
+     30.55090141271172
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "G.NEXT室内高尔夫(武汉梦时代店)",
+    "type": "体育休闲服务;高尔夫相关;高尔夫球场|体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33574343994684,
+     30.53150046400665
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "H·P女子塑形馆",
+    "type": "生活服务;美容美发店;美容美发店|体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3367278475316,
+     30.532038473275964
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "LeMans勒芒健身",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3339114168187,
+     30.55363743631626
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "LifeFitness力健(武汉SKP店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33283867136234,
+     30.55892659723261
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "M8体育格斗综合运动馆(梦时代店)",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33517843148212,
+     30.530354882273546
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Redline Training RED综合训练馆",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3308857334319,
+     30.548393928718987
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "SEVEN·YOGA工作室",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33155647437567,
+     30.550413969914363
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "SFS绚燃搏击(凯德1818店)",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33452929023387,
+     30.55528471167405
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "SUPER MONKEY 超级猩猩健身(凯德1818综合训练店)",
+    "type": "体育休闲服务;运动场馆;健身中心|购物服务;购物相关场所;购物相关场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33477283618674,
+     30.55605998815376
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "U NEED YOGA瑜伽·普拉提",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3503433374274,
+     30.562510416375154
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "WS热雪奇迹",
+    "type": "体育休闲服务;运动场馆;滑雪场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33367274055682,
+     30.531310377279173
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "XFIT健身私教工作室(武大店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34939979488118,
+     30.53733958584445
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "YS·Pilates隐舍普拉提(凯德1818店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33467904815836,
+     30.55533441563145
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "万国体育(武汉武昌击剑运动中心)",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33136522344437,
+     30.533853884313704
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "上上弓射箭馆(武商梦时代店)",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3359890820118,
+     30.531170117178288
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "东方骑仕会国际马术俱乐部(武商梦时代店)",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3355297950216,
+     30.531290927490176
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "东湖国际运动会馆",
+    "type": "体育休闲服务;运动场馆;游泳馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34829214328867,
+     30.562049939312992
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "东湖宾馆-游泳馆",
+    "type": "体育休闲服务;运动场馆;游泳馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36214194646288,
+     30.55809259057443
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "东湖宾馆-网球馆",
+    "type": "体育休闲服务;运动场馆;网球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35486506847982,
+     30.55714423132967
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "东湖宾馆健身房",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36453933499304,
+     30.56183420269007
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "中田·健身+普拉提(楚河汉街skp店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33033555417153,
+     30.560690695921263
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "乐刻健身(凯德1818店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3345812104908,
+     30.55525362584389
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "乒搏汇乒乓球俱乐部(中南路店)",
+    "type": "体育休闲服务;运动场馆;乒乓球馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33354001683192,
+     30.54206407712205
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "九零洪武校场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33118126659636,
+     30.54826941266985
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "优体体能(水果湖店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33881399828326,
+     30.550546470328584
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "体育活动中心",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34678949276764,
+     30.547555495993084
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "倍力美游泳健身(会所东湖店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35130697195186,
+     30.563653462036186
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "全明星光影篮球馆(武商梦时代)",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3351554088298,
+     30.531033705040056
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "兰翕瑜伽(建设中)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33898171058368,
+     30.550889048442382
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "匠林瑜伽工作室(楚天时尚广场店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33148157673877,
+     30.55062603835065
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "卓一普拉提·瑜伽",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3347558872677,
+     30.555782116636287
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "卓尔体育馆",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35180845872956,
+     30.539186094526823
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "叁%健身·24H",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33564436318828,
+     30.55714699118237
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "双喜健身(汉街店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33042141452329,
+     30.560696531215918
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "可菲尔瑜伽 (复地东湖国际店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34987394572823,
+     30.562695111732975
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "君天格斗",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34931085010685,
+     30.56099363443046
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "听涛泳场水上运动中心",
+    "type": "体育休闲服务;运动场馆;游泳馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36799461498993,
+     30.559286996271112
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "启冠乒乓",
+    "type": "体育休闲服务;运动场馆;乒乓球馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35027338256688,
+     30.56305533567456
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "复地·东湖国际网球场",
+    "type": "体育休闲服务;运动场馆;网球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3496063946902,
+     30.56165591660481
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "大力体育(凯德1818校区)",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33483278562872,
+     30.555549054921972
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "天弘羽毛球馆",
+    "type": "体育休闲服务;运动场馆;羽毛球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34421396078736,
+     30.538498948966776
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "太极华青",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33040569466752,
+     30.546276558172007
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "奥维运动康复中心(梦时代店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33677678482567,
+     30.53187943501554
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "奥麟体育篮球体适能",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33915255870724,
+     30.54962217406409
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "富特博青少儿足球俱乐部(复地)",
+    "type": "体育休闲服务;运动场馆;足球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34939270270722,
+     30.561418350012072
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "小侠女子塑形",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3507547120533,
+     30.5634534177061
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "岚道场巴西柔术健身工作室",
+    "type": "体育休闲服务;运动场馆;综合体育馆|体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33914156363804,
+     30.54975914700626
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "岩舞空间(凯德1818店)",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33445942332489,
+     30.55503093014912
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "峰动健身(武汉大学店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3499266662193,
+     30.55363820650076
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "工学部体育馆",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36122590732464,
+     30.546218907213955
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "序健身工作室",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33043539239996,
+     30.560690506872795
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "快网网球俱乐部(武商梦时代店)",
+    "type": "体育休闲服务;运动场馆;网球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3352801847864,
+     30.53134137371488
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "思迈威健身(粤海店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3587946525515,
+     30.567178923373078
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "悠米轮滑(凯德1818校区)",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33442849935965,
+     30.554722095202354
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "悦解忧拉伸·体态筋膜馆(凯德1818店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33437253928868,
+     30.555285003542604
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "戈帕拉瑜伽",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33890587902808,
+     30.55029339063191
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "控·普拉提(汉街店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.334352396676,
+     30.557290340595426
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "提雅普拉提Tiaya Pilates(水果湖店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33888289250164,
+     30.55054434609681
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "旺武体育格斗综合训练馆",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33514540395134,
+     30.53127164640007
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "星回·瑜伽普拉提(凯德1818店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33477884633226,
+     30.55583405582242
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "橙·普拉提",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34891243600984,
+     30.560457478306635
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "橙式燃脂健身工作室(水果湖广场店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3383577058232,
+     30.550499315686647
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "正轻松 国潮拉伸馆",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33250674957988,
+     30.529671093852038
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武体联盟运动康复工作室",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33163429861156,
+     30.55099162451821
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学-足球场",
+    "type": "体育休闲服务;运动场馆;足球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35509625652416,
+     30.540348624900638
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学九一二运动场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36093465753348,
+     30.54105603847418
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学医学部体育馆",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35223245864177,
+     30.555857744928076
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学医学部杏林田径场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34754455932496,
+     30.5576407405026
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学医学部球场",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35160309403147,
+     30.557855041520565
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学宋卿体育馆",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35617894984703,
+     30.5405719341109
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学工学部田径场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36241774529832,
+     30.5458394571894
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学桂园操场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35506929588182,
+     30.54026969185248
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学梅园操场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35927143650476,
+     30.540822401541668
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学球场",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3615447362146,
+     30.544467073915037
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学第二附属小学运动场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35264107566532,
+     30.54283156488449
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学篮球场(文体路)",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35823262222486,
+     30.540315036943
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学网球场",
+    "type": "体育休闲服务;运动场馆;网球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35801854939822,
+     30.543887144779163
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学零盟健身工作室",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34944960226969,
+     30.53877902742048
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学风雨操场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35417435569268,
+     30.540601939518883
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉宏才远志乒乓球俱乐部(楚天时尚广场店)",
+    "type": "体育休闲服务;运动场馆;乒乓球馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.331866955395,
+     30.55062731124148
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉市健坤乒乓球俱乐部",
+    "type": "体育休闲服务;运动场馆;乒乓球馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34671339881032,
+     30.538392705091063
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉武当同和武术馆(楚天都市花园D座店)",
+    "type": "体育休闲服务;运动场馆;运动场所|体育休闲服务;休闲场所;休闲场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33183999646543,
+     30.55065435274484
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉猩猩凯德1818训练店",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33447938256256,
+     30.555134856796105
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "水果湖第一小学游泳馆",
+    "type": "体育休闲服务;运动场馆;游泳馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34285121739542,
+     30.54698147740585
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "汇奥网球",
+    "type": "体育休闲服务;运动场馆;网球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35490902125645,
+     30.5570761887175
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "洪山宾馆-康体中心",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33124802162564,
+     30.549845747170085
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "湖北日报传媒集团",
+    "type": "科教文化服务;传媒机构;报社|公司企业;公司;公司|体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3609281694067,
+     30.569590107168743
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "湖北省水果湖高级中学游泳馆",
+    "type": "体育休闲服务;运动场馆;游泳馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3409305954422,
+     30.5525879564797
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "溯普拉提",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33289089879096,
+     30.555352750580663
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "滑雪训练中心",
+    "type": "体育休闲服务;运动场馆;滑雪场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33463719450656,
+     30.531439536338667
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "炙热瑜伽普拉提·水果湖店",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34247056472566,
+     30.54945930121254
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "烽火乒乓(水果湖店)",
+    "type": "体育休闲服务;运动场馆;乒乓球馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3409779762672,
+     30.54739965216404
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "珞珈山街珞珈社区门球场",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36234397516624,
+     30.53259695672406
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "璞善普拉提(武商梦时代店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33436360678276,
+     30.531694962808977
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "百瑞景五期西区羽毛球场",
+    "type": "体育休闲服务;运动场馆;羽毛球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33087348680934,
+     30.528459563749625
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "省直机关供暖中心篮球馆",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34666167570136,
+     30.54751572543905
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "纳特健身(长城汇店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33267352973164,
+     30.552109283440284
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "统计局篮球场",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33822454289027,
+     30.54325302228068
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "美诺优体运动中心(水果湖校区)",
+    "type": "体育休闲服务;运动场馆;运动场所|科教文化服务;培训机构;培训机构"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33890685340124,
+     30.55057029373253
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "羿刻互动·每日普拉提( 复地店 )",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34736053507926,
+     30.56084691950155
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "脊动力(武昌梦时代中心店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3366280081226,
+     30.53198867316012
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "芊熹瑜伽普拉提(水果湖店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33837269365084,
+     30.55037333169344
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "英冕之星篮球馆(百老汇中北路店)",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33410693275628,
+     30.55561938226484
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "起源健身工作室",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33685448419322,
+     30.556902844620303
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "超级猩猩健身(武商梦时代店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33514540395134,
+     30.53127164640007
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "趣动少儿篮球",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33383055017752,
+     30.55358660499242
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "酷界滑板(武商梦时代店)",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33590323767436,
+     30.53093335259552
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "锐纳斯健身俱乐部(武汉珞珈自强超市店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3517552545048,
+     30.542312134704996
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "青初普拉提(汉街店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33344519491278,
+     30.553247443118824
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "青剑馆本部道场",
+    "type": "体育休闲服务;运动场馆;跆拳道场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33118526240384,
+     30.54824341399768
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "魔羽射箭(洪山广场店)",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.33113633578184,
+     30.54830848421263
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "龙玺格斗",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35103237789278,
+     30.56310909486527
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "BK社交拉丁舞蹈工作室",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34850981602548,
+     30.528005093228558
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Brick健身工作室",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35144326997737,
+     30.53530395771932
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "DayUp健身工作室",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3469299849062,
+     30.528188672453062
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "LEMON柠檬健身空间(长江传媒大厦店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35298502504824,
+     30.526972233206344
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "RinascitaFitness瑞娜达健身(银泰创意城店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35050809213936,
+     30.52845368420972
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "VV·瑜伽·普拉提",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34905517406465,
+     30.526861560862745
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "Wilson威尔胜(武汉体院专卖店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37448882988312,
+     30.51877881616701
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "X-GIRL女子健身(街道口店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34765504984172,
+     30.52733672916473
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "三孚健身(虎泉店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36280085012127,
+     30.517462180607275
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "丘山运动馆",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39038245023596,
+     30.52192726852692
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "东湖阳光运动体育场馆",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.38148358125828,
+     30.535968864307154
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "中国地质大学东区教职工健身中心",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39838524586176,
+     30.522926103732637
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "中国地质大学北区体育活动中心",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39505105548744,
+     30.529904888267385
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "中国地质大学游泳馆",
+    "type": "体育休闲服务;运动场馆;游泳馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39656039753542,
+     30.52195735790836
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "中国地质大学篮球场",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39295183407584,
+     30.52424596005249
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "中国地质大学羽毛球场",
+    "type": "体育休闲服务;运动场馆;羽毛球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39842324748544,
+     30.52315003552661
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "中国地质大学西区网球场",
+    "type": "体育休闲服务;运动场馆;网球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39158346386658,
+     30.5244571639377
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "中国地质大学西区足球场",
+    "type": "体育休闲服务;运动场馆;足球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.392737963209,
+     30.522070685567325
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "乐刻健身铁馆(东湖楚天府店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36306738352904,
+     30.53130543740781
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "乐刻运动健身(银泰创意城店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35045711936247,
+     30.52891361832384
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "乐刻运动铁馆(群光广场店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35103050065392,
+     30.527363195012807
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "乒璇体育",
+    "type": "体育休闲服务;运动场馆;羽毛球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3511366592518,
+     30.53541740967348
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "乔氏金腿/银腿",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36469320994736,
+     30.51589926715195
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "任意游泳健身(武汉大学店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35003134698078,
+     30.53278005391568
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "体育学院羽毛球馆",
+    "type": "体育休闲服务;运动场馆;羽毛球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37093758264712,
+     30.52348978485117
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "体育馆",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3926667527344,
+     30.52425300763948
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "倍力美健身(地大旗舰店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39308687683328,
+     30.52420994910748
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "健健私教馆",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35134040781134,
+     30.535256137332716
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "创客瑜伽武体馆",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3763307037496,
+     30.521104476656998
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "华中师范大学网球场",
+    "type": "体育休闲服务;运动场馆;网球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35790798059664,
+     30.51746486438275
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "四月健身",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35133910053254,
+     30.52733571069492
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "塞尼菲健身工作室",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34866351220916,
+     30.529084491733204
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "奇点体能馆(虎泉校区)",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3644644187931,
+     30.51589355304876
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "宏远乒乓球俱乐部(虎泉店)",
+    "type": "体育休闲服务;运动场馆;乒乓球馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36407274623411,
+     30.516275924852017
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "小卓女子健身(武汉街道口店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34735699192484,
+     30.532744479354616
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "希傲击剑",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37548536060612,
+     30.518237098137657
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "康力体育",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39429784505366,
+     30.51764484681885
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "悍睿健身工作室",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36584999210586,
+     30.52954654150217
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "悟空球社24h(武汉体育学院店)",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37048821612692,
+     30.519776422702368
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "悦动乒乓球体适能俱乐部",
+    "type": "体育休闲服务;运动场馆;乒乓球馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35944559480278,
+     30.525406191143773
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "拾铁兽共享健身(光谷鲁磨路店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39570634963876,
+     30.518152576327864
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "拾铁兽共享健身(虎泉店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36397481404016,
+     30.516541965715444
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "拿铁健身中心(街道口店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34908694041556,
+     30.529047806191013
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "搏乐格斗运动馆",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35137434685085,
+     30.535449019834644
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "斯博特游泳俱乐部(光谷金盾店)",
+    "type": "体育休闲服务;运动场馆;游泳馆|体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.38285107465902,
+     30.51557053108627
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "斯蓝搏武汉体育学院训练中心",
+    "type": "科教文化服务;学校;高等院校|体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3720687273135,
+     30.5247712306865
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "星湖体育馆",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35128988959158,
+     30.530487773374183
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "星空音乐球社",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37139455822032,
+     30.520264332859792
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "杜恩健身24小时(街道口店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34904100599223,
+     30.52900889421092
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "柔道汉柔馆",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37198712722812,
+     30.520789570804396
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "栖沣搏击俱乐部(街道口店)",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34905698731876,
+     30.528974878911768
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "楚英雄羽毛球馆(邮科院1店)",
+    "type": "体育休闲服务;运动场馆;羽毛球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.38556741249374,
+     30.519411885479972
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉东湖阳光羽毛球运动中心",
+    "type": "体育休闲服务;运动场馆;羽毛球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.38118369852356,
+     30.535481219404375
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉体育学院-老三片网球场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37336219402988,
+     30.521849898914997
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉体育学院体操馆",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37023811060271,
+     30.522990674457407
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉体育学院体育馆",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37303645545896,
+     30.52105945872585
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉体育学院体能训练馆",
+    "type": "科教文化服务;学校;高等院校|体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3741603824569,
+     30.525947852860902
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉体育学院全民健身中心",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37208504980454,
+     30.520962418981775
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉体育学院小球馆",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37102155503528,
+     30.52315480424361
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉体育学院湖边网球场",
+    "type": "体育休闲服务;运动场馆;网球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37288723298929,
+     30.52462947351206
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉体育学院篮球场(汇志大道)",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3743676022012,
+     30.5221348732598
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉体育学院综合馆",
+    "type": "体育休闲服务;运动场馆;综合体育馆|科教文化服务;学校;高等院校"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37208699816352,
+     30.521539235556947
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉体育学院西田径场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3708358251609,
+     30.521507516398064
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉体育学院足球场",
+    "type": "体育休闲服务;运动场馆;足球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37327595316066,
+     30.52518392434499
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉体育学院重竞技馆",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37189118968772,
+     30.52077767039489
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉体育学院青少年网球俱乐部",
+    "type": "体育休闲服务;运动场馆;网球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37283729031842,
+     30.52431862058886
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学信息学部体育场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3508774403017,
+     30.530353476853517
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学信息学部体育馆",
+    "type": "体育休闲服务;运动场馆;综合体育馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3567831667293,
+     30.530025510743982
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学信息学部操场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35574638455113,
+     30.52998505506815
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学信息学部游泳池",
+    "type": "体育休闲服务;运动场馆;游泳馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35224356521792,
+     30.53156491240804
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学信息学部篮球场",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35672717243986,
+     30.53070237362763
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学口腔医学院球场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3607901973701,
+     30.52513743004541
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉大学附属中学球场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35773483253983,
+     30.532850212307583
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉工程大学邮电与信息工程学院邮科院校区足球场",
+    "type": "体育休闲服务;运动场馆;足球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.38645846934143,
+     30.51837479860312
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉工程大学邮电与信息工程学院邮科院校区运动场",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3864014794896,
+     30.51827085629325
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉皓千减肥训练营(体院店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.37288451158156,
+     30.52146047888329
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "武汉邮科院篮球场公寓",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.38797327303094,
+     30.52092937596741
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "氧.普拉提美学空间",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3571001219346,
+     30.52635622802801
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "湖北省气象局羽毛球馆",
+    "type": "体育休闲服务;运动场馆;羽毛球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3901317640322,
+     30.51787460919673
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "炼·健身",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35819014312575,
+     30.523440585318895
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "熊猫健身(武汉大学店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3496758687044,
+     30.53224280722449
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "熊猫球社24h自助台球(武汉体育学院店)",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36911018844783,
+     30.52004081813253
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "爱网客网球(体院店)",
+    "type": "体育休闲服务;运动场馆;网球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36898821770724,
+     30.52075372835414
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "珊瑚瑜伽·普拉提(东湖之星店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39553435379896,
+     30.51727785752175
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "珞珈羽盟东湖阳光校区训练基地",
+    "type": "体育休闲服务;运动场馆;羽毛球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.38123969775532,
+     30.535327233399947
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "瑞斯健身RISE(街道口店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3483489973497,
+     30.528448217037585
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "甲骨文球馆",
+    "type": "体育休闲服务;运动场馆;篮球场馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.38738984433316,
+     30.52557113506941
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "空中卓越健身会所(地大店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39673436718316,
+     30.523241950687535
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "羽迹羽毛球俱乐部(光谷/邮科院校区)",
+    "type": "体育休闲服务;运动场馆;羽毛球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39026242767795,
+     30.5219602918445
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "羿龙射箭俱乐部(银泰创意城店)(暂停营业)",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.35078168730472,
+     30.528963079725244
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "跑跑龙羽毛球运动中心",
+    "type": "体育休闲服务;运动场馆;羽毛球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3899827367667,
+     30.517928635936126
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "酷跃体育(我爱网球网)",
+    "type": "体育休闲服务;运动场馆;网球场"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36870142768504,
+     30.520839018415167
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "金属狗26小时共享健身(季佳店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34877033183535,
+     30.52948518618081
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "闪电狗24小时自助健身(武汉虎泉时尚中心店)",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36446242079484,
+     30.51589155615478
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "雷赛健身工作室",
+    "type": "体育休闲服务;运动场馆;运动场所"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.34862655551652,
+     30.52916552664009
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "露娜芭蕾(街道口店)",
+    "type": "体育休闲服务;运动场馆;综合体育馆|科教文化服务;培训机构;培训机构"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.3490629762475,
+     30.52900885811764
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "青年酒店乒乓球馆(虎泉购物广场店)",
+    "type": "体育休闲服务;运动场馆;乒乓球馆"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36394786707731,
+     30.5162220987837
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "青睐普拉提瑜伽馆",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.39436185995528,
+     30.51773581154213
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "name": "飞鱼健身工作室",
+    "type": "体育休闲服务;运动场馆;健身中心"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     114.36224188008208,
+     30.52339104893212
+    ]
+   }
+  }
+ ]
+}

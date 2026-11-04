@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作者上下文
 
 给接手本仓库的 AI Agent（以及人）看的说明。**改代码前先读完**。
-最后更新：2026-10-25
+最后更新：2026-11-04
 
 ---
 
@@ -10,9 +10,11 @@
 **城市慢跑 / 慢骑环境适宜性评价与路线推荐**（课程项目）。
 
 给定起点和 3/5/10 km 目标距离，在武汉 9.1 万段路网上：
-1. 给每段路打 **0–100 适宜性分**（安全 / 绿化 / 坡度 / 过街 / 设施五维，权重显式）；
-2. 生成**闭合环线**（半程折返 + 去程边 4× 双向惩罚，尽量避免原路返回）；
-3. 在静态原型页上展示地图、环线与可解释指标。
+1. 给每段路打 **0–100 适宜性分**（安全 / 绿化 / 坡度 / 过街 / 设施 / 空气六维，权重显式）；
+2. 生成两种路线：**闭合环线**（半程折返 + 去程边 4× 双向惩罚）、
+   **单行线 A→B**（距离环带选终点、不回头）；
+3. 在原型页上展示地图、路线与可解释指标；
+4. 用同一套流程扫描 50 个起点，给出「武汉哪里跑起来分数最高」的空间结论。
 
 > **历史**：项目原为「个性化等时圈」（v3.0），选题被占后转向。
 > 路网图、最短路、POI 统计等内核仍保留在 `app/graph.py`、`app/isochrone.py`，
@@ -36,9 +38,10 @@ $env:PYTHONUNBUFFERED='1'
 .\.venv\Scripts\python.exe backend\scripts\fetch_amap_sport_poi.py # 高德场馆（有缓存）
 
 # 计算
+.\.venv\Scripts\python.exe backend\scripts\build_air_quality_chap.py --year 2024  # 逐段空气（首次下载 ~6 MB×2）
 .\.venv\Scripts\python.exe backend\scripts\build_slope.py          # 坡度
 .\.venv\Scripts\python.exe backend\scripts\build_canopy.py         # 树冠
-.\.venv\Scripts\python.exe backend\scripts\build_running_dataset.py# 五维评分
+.\.venv\Scripts\python.exe backend\scripts\build_running_dataset.py# 六维评分
 .\.venv\Scripts\python.exe backend\scripts\plot_running_map.py     # 地图
 
 # 环线
@@ -51,37 +54,42 @@ $env:PYTHONUNBUFFERED='1'
 
 | 路径 | 作用 | 入库 |
 |---|---|---|
-| `backend/app/running.py` | **跑步图 + 环线生成（当前核心）** | ✅ |
+| `backend/app/running.py` | **跑步图 + 两种路线生成（当前核心）** | ✅ |
+| `backend/app/api.py` | FastAPI 五端点（loops / segments / facilities / meta / health） | ✅ |
 | `backend/app/config.py` | 参数（步速、车速、权重）：唯一"魔法数字"来源 | ✅ |
 | `backend/app/paths.py` | 全项目路径定义 | ✅ |
 | `backend/app/graph.py` | 多模式交通图（前版，接驳用） | ✅ |
 | `backend/app/isochrone.py` | 等时圈内核（前版，保留） | ✅ |
 | `backend/scripts/build_slope.py` | SRTM → 路段坡度 | ✅ |
 | `backend/scripts/build_canopy.py` | WorldCover → 路段树冠 | ✅ |
-| `backend/scripts/build_running_dataset.py` | 五维评分 → `segments.gpkg` | ✅ |
+| `backend/scripts/build_running_dataset.py` | 六维评分 → `segments.gpkg` | ✅ |
 | `backend/scripts/run_loop_demo.py` | 3 起点环线 → GeoJSON + PNG | ✅ |
 | `backend/scripts/fetch_amap_sport_poi.py` | 高德场馆抓取（**勿重跑**，有缓存） | ✅ |
+| `backend/scripts/build_air_quality_chap.py` | CHAP 1 km 年均 PM2.5 / NO2 → 逐段空气 | ✅ |
+| `backend/scripts/build_air_monthly.py` | CHAP 月网格 → 12 个月曲线 | ✅ |
 | `data/processed/v1/` | 基础数据集（路网 / 公交 / 地铁 / POI） | ✅ |
 | `data/processed/running/v1/` | 坡度、树冠、场馆、评分（约 45 MB） | ✅ |
 | `data/processed/running/graph/` | 跑步图缓存（37 MB） | ❌ 可重建 |
 | `data/raw/` | SRTM、WorldCover、OSM、高德缓存（约 12 GB） | ❌ |
 | `data/output/running/v1/` | 地图、环线图、GeoJSON | ✅ |
 | `frontend/prototype/` | 静态原型 + 截图 | ✅ |
-| `docs/` | 说明书 v4.0、数据字典、进展报告 | ✅ |
+| `docs/` | 三个入口文档（说明书 / 分工卡片 / 交接说明）+ 数据、汇报、过程、literature、archive 五个子目录 | ✅ |
+| `presentation/` | 答辩 PPT、原型图、热点图、讲稿、素材（`素材/*.png` 不入库，可重出） | ✅ |
+| `build/` | 生成脚本（配图、PPT、文档同步），**只入库 `*.py` 与 `proto/*.html`**，渲染产物不入库 | ✅ |
 | `tools/` | 一次性历史脚本，**不要当参考实现** | ✅ |
 
 ---
 
 ## 4. 数据契约
 
-字段细节见 `docs/数据字典-跑步数据集.md` 与 `docs/数据字典-v1.md`。必记：
+字段细节见 `docs/数据/数据字典-跑步数据集.md` 与 `docs/数据/数据字典-v1.md`。必记：
 
 | 事实 | 说明 |
 |---|---|
 | CRS | 全部 **WGS84 (EPSG:4326)**；长度/坡度用 **EPSG:32650** 计算 |
 | 评分主表 | `data/processed/running/v1/segments.gpkg` 图层 `segments`，9.1 万行 |
-| 评分字段 | `s_safety / s_green / s_slope / s_cross / s_fac`（0–100）+ `score` + `grade` |
-| 原始指标 | `slope_mean_pct`、`tree_share`、`d_main_m`、`cross_200m`、`d_fac_m` |
+| 评分字段 | `s_safety / s_green / s_slope / s_cross / s_fac / s_air`（0–100）+ `score` + `grade` |
+| 原始指标 | `slope_mean_pct`、`tree_share`、`d_main_m`、`cross_200m`、`d_fac_m`、`no2_ugm3`、`pm25_ugm3` |
 | 环线输出 | `data/output/running/v1/loops.geojson`，属性含 `rank`、`score`、`sub`(JSON) |
 | 场馆 | `data/processed/running/v1/amap_sport_poi.csv`，5,137 个（含 `in_boundary`） |
 | 基础路网 | `data/processed/v1/osm_walk_roads.gpkg` 图层 `walk_roads`，9.1 万段 |
@@ -125,11 +133,12 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 
 | 维度 | 权重 | 来源 | 代理性质 |
 |---|---:|---|---|
-| 安全 | 0.30 | 道路等级 + 距主干道距离 | 无路段车流量 |
+| 安全 | 0.25 | 道路等级 + 距主干道距离 | 无路段车流量 |
 | 绿化 | 0.25 | 0.7×WorldCover 树冠 + 0.3×到绿地距离 | 不识别单排行道树 |
-| 坡度 | 0.20 | SRTM 30 m 平滑后梯度 | ±1 个百分点 |
+| 坡度 | 0.15 | SRTM 30 m 平滑后梯度 | ±1 个百分点 |
 | 过街 | 0.10 | 200 m 内路口数 | 只数顶点度 ≥3 |
-| 设施 | 0.10 | 到最近场馆距离的指数衰减 | 高德 POI，远城偏稀 |
+| 设施 | 0.05 | 到最近场馆距离的指数衰减 | 高德 POI，远城偏稀 |
+| 空气 | 0.15 | CHAP 1 km 年均 NO₂，(40−x)/30 | 只做区域校正，圈层内差 0.2–1.8 µg/m³ |
 
 改权重：改 `build_running_dataset.py` 的 `W` 或调用 `generate_loops(prefs=...)`。
 **改评分必须重跑** `build_running_dataset.py`，再重跑 `run_loop_demo.py`（图缓存会过期）。
@@ -140,7 +149,7 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 
 - **换起点 / 距离**：改 `run_loop_demo.py` 的 `ORIGINS` 与 `TARGET_M`。
 - **加一个评分维度**：在 `build_running_dataset.py` 算指标 → 加子分 → 调权重 → 更新
-  `docs/数据字典-跑步数据集.md`。
+  `docs/数据/数据字典-跑步数据集.md`。
 - **改环线形状**：调 `generate_loops(max_candidates=)`、折点带宽（0.44–0.56）、
   回程惩罚（4.0）。
 - **换城市**：改 `build_canopy.py` / `build_slope.py` 的瓦片清单与 bbox，
@@ -185,12 +194,17 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 
 | 文档 | 读它的场景 |
 |---|---|
-| `项目进度与交接说明.md` | 全项目到哪一步了 |
-| `docs/项目说明书-v4.0.md` | 答辩口径、指标体系、边界 |
-| `docs/开发进展-慢跑适宜性与环线.md` | 实现细节、踩过的坑、结果 |
-| `docs/数据字典-跑步数据集.md` | 评分/环线字段 |
-| `docs/数据补充清单.md` | 数据从哪来、什么补不来 |
-| `docs/design-guidelines.md` | 做前端页面前 |
+| `docs/项目交接说明.md` | 全项目到哪一步了 |
+| `docs/项目说明书.md` | 答辩口径、指标体系、边界 |
+| `docs/过程/开发进展-慢跑适宜性与环线.md` | 实现细节、踩过的坑、结果 |
+| `docs/数据/数据字典-跑步数据集.md` | 评分/环线字段 |
+| `docs/数据/数据补充清单.md` | 数据从哪来、什么补不来 |
+| `docs/数据/数据现状与增补建议.md` | 现用数据审计、失效维度、可增补数据与改造公式 |
+| `docs/literature/参考文献与算法依据.md` | 五维/环线的文献锚点，写报告与答辩 PPT 前读 |
+| `docs/过程/design-guidelines.md` | 做前端页面前 |
+| `docs/分工卡片.md` | 组内分工、交付物与剩余工作 |
+| `docs/汇报/答辩稿.md`、`docs/汇报/讲稿.md` | 排练与答辩 |
+| `docs/literature/参考文献.md` | 已核对过的引用清单与「不能说什么」 |
 | `docs/archive/等时圈版本/` | 旧选题，仅供追溯，**不要引用** |
 
-**改结构或改评分口径时，同步更新本文件与 `项目进度与交接说明.md`。**
+**改结构或改评分口径时，同步更新本文件与 `docs/项目交接说明.md`。**
