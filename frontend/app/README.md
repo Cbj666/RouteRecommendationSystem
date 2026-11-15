@@ -27,6 +27,7 @@ VITE_BAIDU_AK=         # 百度浏览器端 AK；留空则用 SVG 底图
 ```
 
 再把 `VITE_USE_MOCK` 改成 `0`；`vite.config.ts` 已把 `/api`、`/health` 代理到 8000。
+本机若没有系统 Python，可用仓库根目录的 embeddable 环境（已 gitignore）：`.\.python-embed\python.exe -m uvicorn app.api:app --app-dir backend --port 8000`。
 
 ## 常用命令
 
@@ -36,7 +37,8 @@ VITE_BAIDU_AK=         # 百度浏览器端 AK；留空则用 SVG 底图
 | `npm run build` | `vue-tsc --noEmit && vite build`（构建前自动 `sync:geo`） |
 | `npm run preview -- --host 127.0.0.1 --port 5173 --strictPort` | 预览构建产物；**截图/演示推荐**（无文件监听） |
 | `npm run sync:geo` | 从 `data/output/running/v1/web/` 复制底图到 `public/geo/` |
-| `node scripts\ui-smoke.mjs` | 无头冒烟：18 项断言 + 8 张截图（需先 build + preview） |
+| `node scripts\ui-smoke.mjs` | 无头冒烟：mock 模式 **21 项**断言 + 8 张截图（需先 build + preview） |
+| `$env:UI_REAL='1'; node scripts\ui-smoke.mjs` | 真后端冒烟：20 项，额外比对接口分数/耗时（需 `VITE_USE_MOCK=0` 构建 + 后端 8000） |
 
 > 不要在 `npm run dev` 运行时用会做「原子写临时目录」的编辑器/工具改 `src`：Vite 的 FSWatcher
 > 会对 `*.tmpdir` 报 `EBUSY` 退出。已加 `server.watch.ignored`，但迭代截图仍建议 `build + preview`。
