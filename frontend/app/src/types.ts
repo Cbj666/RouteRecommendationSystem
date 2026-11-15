@@ -99,3 +99,58 @@ export interface HealthResponse {
   edges: number
   graph_loaded_at: number
 }
+
+/* ------------------------------------------------------------------
+ * 静态底图（data/output/running/v1/web/*.geojson）
+ * 这些文件由 scripts/sync-geo.mjs 复制到 public/geo/，由前端直接 fetch。
+ * ------------------------------------------------------------------ */
+
+export interface LineGeometry {
+  type: 'LineString'
+  coordinates: [number, number][]
+}
+
+export interface MultiLineGeometry {
+  type: 'MultiLineString'
+  coordinates: [number, number][][]
+}
+
+export interface PolygonGeometry {
+  type: 'Polygon'
+  coordinates: [number, number][][]
+}
+
+export interface MultiPolygonGeometry {
+  type: 'MultiPolygon'
+  coordinates: [number, number][][][]
+}
+
+export type LineLikeGeometry = LineGeometry | MultiLineGeometry
+export type PolygonLikeGeometry = PolygonGeometry | MultiPolygonGeometry
+
+export interface WaterGreenProps {
+  /** 'water' | 'green'，个别要素还可能带 type */
+  kind?: string
+  type?: string
+}
+
+export interface GeoFeature<P, G> {
+  type: 'Feature'
+  properties: P
+  geometry: G
+}
+
+export interface GeoCollection<P, G> {
+  type: 'FeatureCollection'
+  features: GeoFeature<P, G>[]
+}
+
+export type SegmentGeoCollection = GeoCollection<SegmentProps, LineLikeGeometry>
+export type WaterGreenCollection = GeoCollection<WaterGreenProps, PolygonLikeGeometry>
+
+/** POST /api/loops 返回空结果时附带的说明（HTTP 200） */
+export interface LoopEmptyResponse {
+  type: 'FeatureCollection'
+  features: []
+  message?: string
+}

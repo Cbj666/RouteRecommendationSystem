@@ -1,0 +1,27 @@
+:root {
+  /* 颜色——与 docs/前端原型规格.md §2 一致，改这里就等于改全站 */
+  --bg: #f5f8f2;
+  --accent: #15503c;
+  --accent-weak: #e7f1ea;
+  --ink: #1f2a26;
+  --sub: #5f6f68;
+  --muted: #8a9a93;
+  --faint: #7e8e87;
+  --line: #e6ede9;
+  --dash: #e9efec;
+  --slope: #c0762a;
+  --route: #141414;
+  --white: #fff;
+
+  /* 玻璃面板 */
+  --glass-bg: rgba(255, 255, 255, 0.74);
+  --glass-border: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 14px 44px rgba(18, 58, 44, 0.13);
+
+  /* 字体 */
+  --font: 'Microsoft YaHei', 'PingFang SC', -apple-system, 'Segoe UI', sans-serif;
+
+  /* 画布（规格固定 1600×1000，App.vue 负责整体缩放） */
+  --canvas-w: 1600px;
+  --canvas-h: 1000px;
+}

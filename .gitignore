@@ -7,6 +7,7 @@ AK.txt
 
 # ---------- Python ----------
 .venv/
+.python-embed/
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -25,6 +26,8 @@ node_modules/
 dist/
 dist-ssr/
 *.local
+# 静态底图由 scripts/sync-geo.mjs 从 data/output 复制而来，不重复入库
+frontend/app/public/geo/
 
 # ---------- 大体积原始数据（不进库，见 data/README.md） ----------
 data/raw/

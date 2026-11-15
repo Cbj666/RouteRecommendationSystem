@@ -1,21 +1,23 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>跑步友好度 · 武汉</title>
-
-  <!--
-    百度地图 JS API（卡片 1 负责人）：
-    1. 去 https://lbsyun.baidu.com/ 申请"浏览器端"AK；
-    2. 在 frontend/app/.env.local 写 VITE_BAIDU_AK=你的AK；
-    3. 若底图加载失败，先检查 AK 的 Referer 白名单。
-    当前用注释占位，避免没有 AK 时页面整体报错。
-  -->
-  <!-- <script src="https://api.map.baidu.com/api?v=3.0&type=webgl&ak=%VITE_BAIDU_AK%"></script> -->
-</head>
-<body>
-  <div id="app"></div>
-  <script type="module" src="/src/main.ts"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f8f2" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2315503c'/%3E%3Crect x='8' y='8' width='16' height='16' fill='%23f5f8f2'/%3E%3C/svg%3E"
+    />
+    <title>跑步友好度 · 武汉</title>
+    <!--
+      百度地图 JS API（WebGL）在 M3 接入，由 src/map/baiduAdapter.ts 动态注入：
+        VITE_BAIDU_AK 写在 frontend/app/.env.local；
+        AK 需把 http://127.0.0.1:5173/* 加入 Referer 白名单。
+      当前 M1 使用 SVG 适配器，不加载任何外部地图脚本。
+    -->
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>

@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作者上下文
 
 给接手本仓库的 AI Agent（以及人）看的说明。**改代码前先读完**。
-最后更新：2026-11-04
+最后更新：2026-11-13
 
 ---
 
@@ -72,7 +72,9 @@ $env:PYTHONUNBUFFERED='1'
 | `data/processed/running/graph/` | 跑步图缓存（37 MB） | ❌ 可重建 |
 | `data/raw/` | SRTM、WorldCover、OSM、高德缓存（约 12 GB） | ❌ |
 | `data/output/running/v1/` | 地图、环线图、GeoJSON | ✅ |
-| `frontend/prototype/` | 静态原型 + 截图 | ✅ |
+| `frontend/prototype/` | 静态原型 + 截图（旧视觉，已被 reference 取代） | ✅ |
+| `frontend/app/` | **Vue 交互页（当前前端交付物）**：SVG 底图 + 环线推荐 + 四态 + 移动端；`npm run build` / `scripts/ui-smoke.mjs` | ✅ |
+| `frontend/reference/` | 零依赖 SVG 参考实现（视觉真源） | ✅ |
 | `docs/` | 三个入口文档（说明书 / 分工卡片 / 交接说明）+ 数据、汇报、过程、literature、archive 五个子目录 | ✅ |
 | `presentation/` | 答辩 PPT、原型图、热点图、讲稿、素材（`素材/*.png` 不入库，可重出） | ✅ |
 | `build/` | 生成脚本（配图、PPT、文档同步），**只入库 `*.py` 与 `proto/*.html`**，渲染产物不入库 | ✅ |
@@ -195,6 +197,7 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 | 文档 | 读它的场景 |
 |---|---|
 | `docs/项目交接说明.md` | 全项目到哪一步了 |
+| `docs/接口契约.md` | 前后端唯一依据（当前 v1.1：端点/错误码/静态资产/G1–G8 缺口） |
 | `docs/项目说明书.md` | 答辩口径、指标体系、边界 |
 | `docs/过程/开发进展-慢跑适宜性与环线.md` | 实现细节、踩过的坑、结果 |
 | `docs/数据/数据字典-跑步数据集.md` | 评分/环线字段 |
