@@ -69,6 +69,8 @@ $env:PYTHONUNBUFFERED='1'
 | `backend/scripts/build_running_dataset.py` | 六维评分 → `segments.gpkg` | ✅ |
 | `backend/scripts/run_loop_demo.py` | 3 起点环线 → GeoJSON + PNG | ✅ |
 | `backend/scripts/fetch_amap_sport_poi.py` | 高德场馆抓取（**勿重跑**，有缓存） | ✅ |
+| `backend/scripts/fetch_amap_toilet_poi.py` | 高德公厕抓取（2026-11，6,122 个；缓存 `data/cache/amap_toilet/`） | ✅ |
+| `backend/scripts/merge_amap_toilet_poi.py` | 公厕合并进 `poi.gpkg`（5,839 个，幂等） | ✅ |
 | `backend/scripts/build_air_quality_chap.py` | CHAP 1 km 年均 PM2.5 / NO2 → 逐段空气 | ✅ |
 | `backend/scripts/build_air_monthly.py` | CHAP 月网格 → 12 个月曲线 | ✅ |
 | `data/processed/v1/` | 基础数据集（路网 / 公交 / 地铁 / POI） | ✅ |
@@ -96,6 +98,7 @@ $env:PYTHONUNBUFFERED='1'
 | 原始指标 | `slope_mean_pct`、`tree_share`、`d_main_m`、`cross_200m`、`d_fac_m`、`no2_ugm3`、`pm25_ugm3` |
 | 环线输出 | `data/output/running/v1/loops.geojson`，属性含 `rank`、`score`、`sub`(JSON) |
 | 场馆 | `data/processed/running/v1/amap_sport_poi.csv`，5,137 个（含 `in_boundary`） |
+| 公厕 | `data/processed/running/v1/amap_toilet_poi.csv`，6,122 个；`poi.gpkg` 内 5,839 个（`source_layer="amap_toilet"`） |
 | 基础路网 | `data/processed/v1/osm_walk_roads.gpkg` 图层 `walk_roads`，9.1 万段 |
 
 **不要**在新代码里读 `data/interim/`（上游中间表，字段更乱）。
@@ -141,7 +144,7 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 | 绿化 | 0.25 | 0.7×WorldCover 树冠 + 0.3×到绿地距离 | 不识别单排行道树 |
 | 坡度 | 0.15 | SRTM 30 m 平滑后梯度 | ±1 个百分点 |
 | 过街 | 0.10 | 200 m 内路口数 | 只数顶点度 ≥3 |
-| 设施 | 0.05 | 到最近场馆距离的指数衰减 | 高德 POI，远城偏稀 |
+| 设施 | 0.05 | 到最近设施点的指数衰减；设施 = 高德场馆 4,081 + OSM 配套 5,344 + 高德公厕 5,117 = 14,542 | 只算"到最近点"，不反映沿途密度 |
 | 空气 | 0.15 | CHAP 1 km 年均 NO₂，(40−x)/30 | 只做区域校正，圈层内差 0.2–1.8 µg/m³ |
 
 改权重：改 `build_running_dataset.py` 的 `W` 或调用 `generate_loops(prefs=...)`。
@@ -178,6 +181,11 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 8. **不要重新抓高德**：`data/cache/amap_sport/` 有 500+ 条响应，重跑会耗配额。
 9. **中文路径 + PowerShell**：读写文本用 Python + `encoding="utf-8"`；
    `Set-Content` 会按 GBK 重写导致乱码。
+10. **GeoDataFrame 拼设施点会丢几何/错位**（2026-11 修）：`poi[["poi_id","name"]]`
+    会连 geometry 列一起丢掉（下游 `geometry.notna()` 直接过滤掉整批 OSM 点）；
+    `GeoSeries(shapely.points(...))` 用默认 RangeIndex，而 `am` 是过滤后的原索引，
+    构造 GeoDataFrame 时索引对不齐 → 828/4,081 个场馆几何变空。
+    正确写法：`am.reset_index(drop=True)` + `np.asarray(geom)` + 选择列时带 `"geometry"`。
 
 ---
 

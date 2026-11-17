@@ -1,0 +1,10 @@
+{
+  "crawled": 6122,
+  "in_boundary": 5959,
+  "merged": 5839,
+  "public_toilet": 5117,
+  "indoor_toilet": 722,
+  "dropped_venue_pois": 120,
+  "near_existing_toilet_20m": 48,
+  "poi_points_total": 19993
+}
