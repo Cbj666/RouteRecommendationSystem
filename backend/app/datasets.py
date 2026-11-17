@@ -1,17 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Cached, read-only datasets for the HTTP layer.
+"""HTTP 图层所需的只读数据缓存模块。
 
-The Vue app needs three map layers.  They are small enough to keep in
-memory, so the first request pays the file-read cost and every later
-request only pays bbox filtering + GeoJSON serialisation:
+所属模块：数据访问与内存缓存层。
 
-    segments.gpkg          91,203 LineStrings    ~0.6 s
-    water_green.geojson     3,586 Polygons       ~0.1 s
-    amap_sport_poi.csv      5,137 Points         ~0.02 s
+作用：为前端地图提供评分路段、水体与绿地、运动场馆三类数据。首访时读取
+原始文件，之后复用内存中的 GeoDataFrame，每个请求只执行范围过滤和 GeoJSON
+序列化。导入本模块不会立即读取文件；文件缺失或损坏时抛出
+``DatasetUnavailable``，由 API 层转换为 503 响应。
 
-All frames are EPSG:4326 (WGS84).  The loaders are deliberately lazy:
-importing this module never touches the filesystem, and a missing file
-raises :class:`DatasetUnavailable` which ``api.py`` turns into HTTP 503.
+统一坐标系统：EPSG:4326（WGS84）。
 """
 from __future__ import annotations
 
@@ -26,34 +23,35 @@ import pandas as pd
 
 from . import paths
 
+# 跑步评分数据目录与前端轻量地图图层目录
 RUN = paths.DATA / "processed" / "running" / "v1"
 WEB = paths.OUTPUT / "running" / "v1" / "web"
 
+# 三类地图数据源
 SEGMENTS_GPKG = RUN / "segments.gpkg"
 WATER_GREEN_GEOJSON = WEB / "water_green.geojson"
 POI_CSV = RUN / "amap_sport_poi.csv"
 
-#: bbox used when `/api/segments` is called without one (same view as the
-#: PPT prototype / `web/segments_city.geojson`).
+# 未显式传入 bbox 时使用的默认路段视口，与原型展示范围一致
 DEFAULT_SEGMENT_BBOX = (114.305, 30.508, 114.405, 30.562)
 
-#: Attributes returned by `/api/segments` unless `detail=full`.
+# 路段接口在 detail=basic 时返回的常用评分字段
 BASIC_SEGMENT_FIELDS = [
     "osm_id", "fclass", "name", "length_m", "score", "grade",
     "s_safety", "s_green", "s_slope", "s_cross", "s_fac", "s_air",
     "no2_ugm3", "pm25_ugm3",
 ]
 
-#: Attributes returned by `/api/pois` (and `/api/facilities`).
+# 设施点接口返回的字段
 POI_FIELDS = [
     "poi_id", "name", "type", "typecode", "address", "adname",
     "tel", "in_boundary",
 ]
 
-#: Indoor entertainment that the scoring pipeline drops; the map API does
-#: the same by default so the point layer matches the dataset used in scoring.
+# 与评分口径一致，默认从地图设施层剔除的室内休闲娱乐类型
 EXCLUDED_POI_PATTERN = "台球|棋牌|游戏|歌舞|夜总会|网吧|KTV"
 
+# 路段字段的中文说明，供 /api/layers 返回机器可读数据目录
 SEGMENT_FIELD_LABELS = {
     "osm_id": "OSM way id",
     "fclass": "道路类型（OSM fclass）",
@@ -83,10 +81,12 @@ SEGMENT_FIELD_LABELS = {
     "grade": "等级：差 / 一般 / 较好 / 好 / 很好",
 }
 
+# 水体与绿地图层字段说明
 WATER_GREEN_FIELD_LABELS = {
     "kind": "面类型：water / green",
 }
 
+# 设施点字段说明
 POI_FIELD_LABELS = {
     "poi_id": "高德 POI id",
     "name": "名称",
@@ -100,15 +100,18 @@ POI_FIELD_LABELS = {
 
 
 class DatasetUnavailable(RuntimeError):
-    """Raised when a source file is missing or cannot be parsed."""
+    """数据源文件缺失、为空或无法解析时抛出的异常。"""
 
 
+# 已加载图层缓存；键为 segments、water_green、pois
 _cache: dict[str, gpd.GeoDataFrame] = {}
+
+# 首访并发保护锁，避免多个请求同时重复加载同一图层
 _lock = threading.Lock()
 
 
 def _read_once(key: str, loader: Any) -> gpd.GeoDataFrame:
-    """Load ``key`` once, with a lock so concurrent first requests do not race."""
+    """按图层键只加载一次，并用双重检查锁避免并发首访重复读取。"""
     if key in _cache:
         return _cache[key]
     with _lock:
@@ -118,6 +121,7 @@ def _read_once(key: str, loader: Any) -> gpd.GeoDataFrame:
 
 
 def _require(path: Path, hint: str) -> Path:
+    """确认数据文件存在；不存在时生成包含构建提示的异常。"""
     if not path.exists():
         try:
             shown = path.relative_to(paths.PROJECT)
@@ -128,6 +132,7 @@ def _require(path: Path, hint: str) -> Path:
 
 
 def _ensure_wgs84(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """确保 GeoDataFrame 使用 EPSG:4326。"""
     if gdf.crs is None:
         return gdf.set_crs(4326)
     if gdf.crs.to_epsg() != 4326:
@@ -136,11 +141,10 @@ def _ensure_wgs84(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
 
 def _json_safe(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """Replace NaN / +-Inf with ``None`` so ``to_json`` emits valid JSON.
+    """把 NaN 和正负无穷转换为 ``None``，保证输出是浏览器可解析的 JSON。
 
-    In particular ``d_green_m`` / ``d_water_m`` / ``d_main_m`` use ``inf``
-    for "nothing within the search radius"; ``Infinity`` is not accepted by
-    ``JSON.parse`` in the browser, so those become ``null``.
+    距离字段常用 ``inf`` 表示搜索半径内没有目标；``Infinity`` 不是合法
+    JSON 数字，因此必须转换为 ``null``。
     """
     geom = gdf.geometry.name
     for col in gdf.columns:
@@ -157,6 +161,7 @@ def _json_safe(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
 
 def _load_segments() -> gpd.GeoDataFrame:
+    """读取并校验评分路段图层。"""
     path = _require(SEGMENTS_GPKG, "请先运行 backend/scripts/build_running_dataset.py")
     try:
         gdf = gpd.read_file(path, layer="segments")
@@ -171,6 +176,7 @@ def _load_segments() -> gpd.GeoDataFrame:
 
 
 def _load_water_green() -> gpd.GeoDataFrame:
+    """读取并校验水体与绿地多边形图层。"""
     path = _require(
         WATER_GREEN_GEOJSON,
         "请先运行 build/export_web_assets.py 生成 water_green.geojson",
@@ -186,6 +192,7 @@ def _load_water_green() -> gpd.GeoDataFrame:
 
 
 def _load_pois() -> gpd.GeoDataFrame:
+    """读取高德 POI CSV，并转换为 WGS84 点图层。"""
     path = _require(POI_CSV, "请先运行 backend/scripts/fetch_amap_sport_poi.py")
     try:
         df = pd.read_csv(path, encoding="utf-8-sig")
@@ -213,19 +220,22 @@ def _load_pois() -> gpd.GeoDataFrame:
 
 
 def segments() -> gpd.GeoDataFrame:
+    """返回缓存的评分路段数据。"""
     return _read_once("segments", _load_segments)
 
 
 def water_green() -> gpd.GeoDataFrame:
+    """返回缓存的水体与绿地数据。"""
     return _read_once("water_green", _load_water_green)
 
 
 def pois() -> gpd.GeoDataFrame:
+    """返回缓存的设施点数据。"""
     return _read_once("pois", _load_pois)
 
 
 def clip(gdf: gpd.GeoDataFrame, bbox: tuple[float, float, float, float] | None):
-    """Return the rows intersecting ``bbox`` (uses the GeoPandas spatial index)."""
+    """返回与 bbox 相交的要素；bbox 为空时返回全部数据。"""
     if bbox is None:
         return gdf
     min_lng, min_lat, max_lng, max_lat = bbox
@@ -233,6 +243,7 @@ def clip(gdf: gpd.GeoDataFrame, bbox: tuple[float, float, float, float] | None):
 
 
 def segment_fields(detail: str = "basic") -> list[str]:
+    """按 basic 或 full 口径返回路段属性字段。"""
     gdf = segments()
     if detail == "full":
         return [c for c in gdf.columns if c != gdf.geometry.name]
@@ -240,6 +251,7 @@ def segment_fields(detail: str = "basic") -> list[str]:
 
 
 def poi_fields() -> list[str]:
+    """返回当前数据中实际存在的设施点输出字段。"""
     gdf = pois()
     return [c for c in POI_FIELDS if c in gdf.columns]
 
@@ -252,11 +264,10 @@ def feature_collection(
     bbox: tuple[float, float, float, float] | None = None,
     extra: dict[str, Any] | None = None,
 ) -> str:
-    """Serialise ``gdf`` to a GeoJSON string with our envelope fields.
+    """把 GeoDataFrame 序列化为带 total、truncated、bbox 等外层字段的 GeoJSON。
 
-    ``to_json`` is used instead of a Python loop because it serialises 10k
-    features in ~0.3 s.  The extra keys are prepended to the top-level object
-    instead of round-tripping the whole document through ``json.loads``.
+    使用 GeoDataFrame 自带序列化以减少大图层开销，并通过字符串拼接把附加
+    元数据放入顶层对象，避免整体二次解析。
     """
     body = gdf.to_json(drop_id=True)
     meta: dict[str, Any] = dict(extra or {})
@@ -270,7 +281,7 @@ def feature_collection(
 
 
 def status() -> dict[str, int | None]:
-    """Loaded row counts without triggering a load (used by /health)."""
+    """返回已缓存图层的行数，不主动触发加载；供健康检查使用。"""
     return {
         name: (int(len(_cache[name])) if name in _cache else None)
         for name in ("segments", "water_green", "pois")
@@ -278,7 +289,7 @@ def status() -> dict[str, int | None]:
 
 
 def preload() -> dict[str, str]:
-    """Warm the cache at startup; return per-layer error messages."""
+    """在服务启动阶段预热缓存，并返回各图层的加载错误信息。"""
     errors: dict[str, str] = {}
     for name, loader in (
         ("segments", segments),
