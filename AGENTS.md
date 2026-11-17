@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作者上下文
 
 给接手本仓库的 AI Agent（以及人）看的说明。**改代码前先读完**。
-最后更新：2026-11-13
+最后更新：2026-11-17
 
 ---
 
@@ -46,6 +46,9 @@ $env:PYTHONUNBUFFERED='1'
 
 # 环线
 .\.venv\Scripts\python.exe backend\scripts\run_loop_demo.py
+
+# HTTP 接口（线上联调走它；底图另有 public/geo 静态兜底）
+.\.venv\Scripts\python.exe -m uvicorn app.api:app --app-dir backend --port 8000
 ```
 
 ---
@@ -55,7 +58,8 @@ $env:PYTHONUNBUFFERED='1'
 | 路径 | 作用 | 入库 |
 |---|---|---|
 | `backend/app/running.py` | **跑步图 + 两种路线生成（当前核心）** | ✅ |
-| `backend/app/api.py` | FastAPI 五端点（loops / segments / facilities / meta / health） | ✅ |
+| `backend/app/api.py` | FastAPI 九路由（图层 + 目录 + 元信息 + 环线） | ✅ |
+| `backend/app/datasets.py` | 三个图层的内存缓存、bbox 过滤、GeoJSON 序列化 | ✅ |
 | `backend/app/config.py` | 参数（步速、车速、权重）：唯一"魔法数字"来源 | ✅ |
 | `backend/app/paths.py` | 全项目路径定义 | ✅ |
 | `backend/app/graph.py` | 多模式交通图（前版，接驳用） | ✅ |
@@ -73,7 +77,7 @@ $env:PYTHONUNBUFFERED='1'
 | `data/raw/` | SRTM、WorldCover、OSM、高德缓存（约 12 GB） | ❌ |
 | `data/output/running/v1/` | 地图、环线图、GeoJSON | ✅ |
 | `frontend/prototype/` | 静态原型 + 截图（旧视觉，已被 reference 取代） | ✅ |
-| `frontend/app/` | **Vue 交互页（当前前端交付物）**：SVG 底图 + 环线推荐 + 四态 + 移动端；`npm run build` / `scripts/ui-smoke.mjs` | ✅ |
+| `frontend/app/` | **Vue 交互页（当前前端交付物）**：13 个数据图层（片区/全城双视野）+ SVG 底图 + 环线推荐 + 四态 + 移动端；`npm run build` / `scripts/ui-smoke.mjs` | ✅ |
 | `frontend/reference/` | 零依赖 SVG 参考实现（视觉真源） | ✅ |
 | `docs/` | 三个入口文档（说明书 / 分工卡片 / 交接说明）+ 数据、汇报、过程、literature、archive 五个子目录 | ✅ |
 | `presentation/` | 答辩 PPT、原型图、热点图、讲稿、素材（`素材/*.png` 不入库，可重出） | ✅ |
@@ -197,7 +201,7 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 | 文档 | 读它的场景 |
 |---|---|
 | `docs/项目交接说明.md` | 全项目到哪一步了 |
-| `docs/接口契约.md` | 前后端唯一依据（当前 v1.1：端点/错误码/静态资产/G1–G8 缺口） |
+| `docs/接口契约.md` | 前后端唯一依据（当前 v1.2：9 路由 + 前端 M3 静态图层资产） |
 | `docs/项目说明书.md` | 答辩口径、指标体系、边界 |
 | `docs/过程/开发进展-慢跑适宜性与环线.md` | 实现细节、踩过的坑、结果 |
 | `docs/数据/数据字典-跑步数据集.md` | 评分/环线字段 |
