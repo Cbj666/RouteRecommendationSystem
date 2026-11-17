@@ -1,23 +1,28 @@
 # -*- coding: utf-8 -*-
-"""Multimodal graph: walking network + bus + metro, as a scipy sparse CSR matrix.
+"""多模式交通图构建与缓存模块。
 
-Node kinds
-    0  walking-network vertex
-    1  bus stop (street level, boarding point)
-    2  metro station (street level, boarding point)
-    3  bus platform (one per line-direction-stop)
-    4  metro platform
+所属模块：基础图算法层（前版本保留能力）。
 
-Edge semantics (all weights in seconds, all edges directed)
-    walk vertex  <-> walk vertex     length / walk_speed
-    walk vertex  <-> stop            access distance / walk_speed
-    stop          -> platform        wait time (headway/2)
-    platform(a)   -> platform(b)     ride time (dist_route / speed + dwell)
-    platform      -> stop            0
+作用：把步行路网、公交和地铁组织为 SciPy CSR 稀疏图，统一保存节点类型、
+空间坐标、换乘关系和以秒为单位的边权。当前项目主要复用其中的步行路网和
+路口统计能力；历史等时圈计算仍依赖本模块，因此继续保留。
 
-Splitting stops from platforms makes transfer cost emerge naturally: alighting
-is free, boarding again costs another wait, and walking between two stops
-happens on the real street network.
+节点类型：
+    0  步行路网顶点
+    1  公交站点（道路层面的上车点）
+    2  地铁站点（道路层面的上车点）
+    3  公交站台（按线路、方向和站序展开）
+    4  地铁站台
+
+边权语义（全部为有向边，单位秒）：
+    步行顶点 <-> 步行顶点       长度 / 步行速度
+    步行顶点 <-> 站点           接驳距离 / 步行速度
+    站点     -> 站台            候车时间
+    站台(a)  -> 站台(b)         乘车时间（沿线里程 / 速度 + 停站）
+    站台     -> 站点            0
+
+站点与站台分离后，下车不额外计时，再次上车会重新计算候车时间，从而使
+换乘成本自然体现在最短路结果中。
 """
 from __future__ import annotations
 
@@ -36,7 +41,10 @@ from .config import DEFAULT, Params
 from .paths import GRAPH_CACHE as CACHE
 from .paths import V1
 
+# 图节点类型编码
 WALK, BUS_STOP, METRO_STOP, BUS_PLATFORM, METRO_PLATFORM = 0, 1, 2, 3, 4
+
+# 节点类型到可读名称的映射，主要用于调试和路径解释
 KIND_NAMES = {
     WALK: "walk",
     BUS_STOP: "bus_stop",
@@ -48,23 +56,28 @@ KIND_NAMES = {
 
 @dataclass
 class Graph:
+    """多模式交通图的内存表示。
+
+    所有节点数组按同一索引对齐；``csr`` 的边权单位为秒。
+    """
+
     csr: csr_matrix
-    kind: np.ndarray          # int8, shape (n,)
-    x: np.ndarray             # UTM 50N easting, metres
-    y: np.ndarray             # UTM 50N northing, metres
-    lng: np.ndarray
-    lat: np.ndarray
-    named_idx: np.ndarray     # int32 indices of nodes that carry an id (stops/platforms)
-    named_id: np.ndarray      # unicode ids
-    named_name: np.ndarray    # unicode names
-    walk_comp_size: np.ndarray  # int32, size of the walk component each vertex belongs to
-    n_walk: int
-    params: Params
-    stats: dict
-    _kd: object | None = None
+    kind: np.ndarray          # int8，节点类型编码
+    x: np.ndarray             # UTM 50N 东坐标，单位米
+    y: np.ndarray             # UTM 50N 北坐标，单位米
+    lng: np.ndarray           # WGS84 经度
+    lat: np.ndarray           # WGS84 纬度
+    named_idx: np.ndarray     # 带业务编号的节点索引，主要是站点和站台
+    named_id: np.ndarray      # 带业务编号节点的唯一标识
+    named_name: np.ndarray    # 带业务编号节点的显示名称
+    walk_comp_size: np.ndarray  # 每个步行顶点所属连通分量的规模
+    n_walk: int               # 步行路网顶点数量；其余节点从该位置开始
+    params: Params            # 建图时使用的参数快照
+    stats: dict               # 建图规模、接驳距离、连通性等统计信息
+    _kd: object | None = None  # 最大步行连通分量的延迟构建 KD 树缓存
 
     def kdtree(self):
-        """KD-tree over the major walk component (cached)."""
+        """返回覆盖主要步行连通分量的 KD 树，并在实例内缓存。"""
         if self._kd is None:
             from scipy.spatial import cKDTree
 
@@ -79,15 +92,19 @@ class Graph:
 
     @property
     def n_nodes(self) -> int:
+        """图中节点总数。"""
         return int(self.kind.shape[0])
 
     def id_to_index(self) -> dict[str, int]:
+        """把业务节点标识映射到图内索引。"""
         return dict(zip(self.named_id.tolist(), self.named_idx.tolist()))
 
     def nodes_of_kind(self, kind: int) -> np.ndarray:
+        """返回指定节点类型对应的全部图索引。"""
         return np.flatnonzero(self.kind == kind)
 
     def save(self, path: Path) -> None:
+        """把图数组和参数统计写入压缩缓存文件。"""
         path.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(
             path,
@@ -111,6 +128,7 @@ class Graph:
 
     @classmethod
     def load(cls, path: Path) -> "Graph":
+        """从缓存文件恢复多模式交通图。"""
         z = np.load(path, allow_pickle=False)
         n = z["indptr"].shape[0] - 1
         csr = csr_matrix((z["data"], z["indices"], z["indptr"]), shape=(n, n))
@@ -132,8 +150,9 @@ class Graph:
         )
 
 
-# --------------------------------------------------------------------- helpers
+# --------------------------------------------------------------------- 通用辅助函数
 def _utm(lng: np.ndarray, lat: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """把 WGS84 经纬度转换为 UTM 50N 米制坐标。"""
     from pyproj import Transformer
 
     tr = Transformer.from_crs("EPSG:4326", "EPSG:32650", always_xy=True)
@@ -142,7 +161,7 @@ def _utm(lng: np.ndarray, lat: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _read_walk_network():
-    """Unique vertices, segment endpoints, segment lengths (metres), metric coords."""
+    """读取步行路网并返回去重顶点、相邻边、长度和米制坐标。"""
     gdf = pyogrio.read_dataframe(V1 / "osm_walk_roads.gpkg", layer="walk_roads")
     geoms = gdf.geometry.to_numpy()
     counts = shapely.get_num_coordinates(geoms)
@@ -152,7 +171,7 @@ def _read_walk_network():
     starts = np.concatenate(([0], np.cumsum(counts)[:-1]))
     a, b = inv[:-1], inv[1:]
     keep = np.ones(len(a), dtype=bool)
-    keep[starts[1:] - 1] = False          # do not join the end of one way to the next
+    keep[starts[1:] - 1] = False          # 不把相邻 OSM way 的端点强行连成边
     a, b = a[keep], b[keep]
 
     x, y = _utm(uk[:, 0], uk[:, 1])
@@ -162,6 +181,7 @@ def _read_walk_network():
 
 
 def metro_wait_by_line() -> dict[str, float]:
+    """按工作日最小发车间隔估算各条地铁线路的平均候车时间。"""
     sched = pd.read_csv(V1 / "metro_schedule.csv")
     out: dict[str, float] = {}
     for lid, grp in sched[sched["day_type"] == "weekday"].groupby("line_id"):
@@ -169,8 +189,10 @@ def metro_wait_by_line() -> dict[str, float]:
     return out
 
 
-# ----------------------------------------------------------------------- build
+# ----------------------------------------------------------------------- 图构建
 def build(params: Params = DEFAULT, verbose: bool = True) -> Graph:
+    """根据冻结基础数据和给定参数构建多模式交通图。"""
+
     def say(msg: str) -> None:
         if verbose:
             print(msg, flush=True)
@@ -180,17 +202,18 @@ def build(params: Params = DEFAULT, verbose: bool = True) -> Graph:
     n_walk = len(uk)
     say(f"[graph] walk nodes {n_walk:,}, segments {len(seg_a):,}")
 
+    # 以数组列表暂存所有边，最后统一拼接为 CSR
     rows: list[np.ndarray] = []
     cols: list[np.ndarray] = []
     vals: list[np.ndarray] = []
 
-    # --- walking -----------------------------------------------------------
+    # 步行路网边权：相邻顶点之间的秒制通行时间
     w = seg_len / params.walk_speed_mps
     rows += [seg_a, seg_b]
     cols += [seg_b, seg_a]
     vals += [w, w]
 
-    # --- walk connectivity -------------------------------------------------
+    # 计算步行路网连通分量，后续站点吸附优先使用最大连通分量
     from scipy.sparse import coo_matrix
     from scipy.sparse.csgraph import connected_components
 
@@ -207,7 +230,7 @@ def build(params: Params = DEFAULT, verbose: bool = True) -> Graph:
         f"({100 * walk_comp.max() / n_walk:.1f}%)"
     )
 
-    # --- stops -------------------------------------------------------------
+    # 读取公交和地铁站点，并把站点匹配到步行路网
     bus = pd.read_csv(V1 / "stops_bus.csv")
     metro = pd.read_csv(V1 / "stops_metro.csv")
     n_bus, n_metro = len(bus), len(metro)
@@ -215,10 +238,12 @@ def build(params: Params = DEFAULT, verbose: bool = True) -> Graph:
     metro0 = n_walk + n_bus
     next_node = metro0 + n_metro
 
+    # 业务站点编号到图节点索引的映射
     stop_index: dict[str, int] = {}
     stop_index.update({nid: bus0 + i for i, nid in enumerate(bus["node_id"])})
     stop_index.update({nid: metro0 + i for i, nid in enumerate(metro["node_id"])})
 
+    # 车站类节点及其业务标识、显示名称
     named_idx: list[int] = list(range(bus0, metro0)) + list(range(metro0, next_node))
     named_id: list[str] = list(bus["node_id"]) + list(metro["node_id"])
     named_name: list[str] = list(bus["name"].astype(str)) + list(metro["name"].astype(str))
@@ -237,7 +262,7 @@ def build(params: Params = DEFAULT, verbose: bool = True) -> Graph:
     acc_d, acc_i = (np.asarray(v) for v in tree.query(q, k=1))
     if tree_all is not None:
         acc_i = big_index[acc_i]
-        # stops that sit on a walk fragment: fall back to the nearest vertex anywhere
+        # 对落在小连通片段附近的站点，退回全路网最近顶点
         far = acc_d > 400.0
         if far.any():
             d2, i2 = (np.asarray(v) for v in tree_all.query(q[far], k=1))
@@ -255,13 +280,14 @@ def build(params: Params = DEFAULT, verbose: bool = True) -> Graph:
         f"{', dropped ' + str(int((~ok).sum())) if (~ok).any() else ''})"
     )
 
-    # --- platforms + ride edges -------------------------------------------
+    # 把线路展开为站台节点，并建立候车、乘车和下车边
     say("[graph] expanding routes into platforms ...")
     bus_rs = pd.read_csv(V1 / "bus_route_stops.csv")
     bus_ed = pd.read_csv(V1 / "edges_bus.csv")
     met_rs = pd.read_csv(V1 / "metro_route_stops.csv")
     met_ed = pd.read_csv(V1 / "edges_metro.csv")
 
+    # 站台节点属性；地铁站台另存索引，便于回填节点类型
     platform_rows: list[int] = []
     platform_ids: list[str] = []
     platform_names: list[str] = []
@@ -277,7 +303,10 @@ def build(params: Params = DEFAULT, verbose: bool = True) -> Graph:
         wait: float | dict[str, float],
         metro_flag: bool,
     ) -> tuple[int, float, float]:
+        """把一条交通线路的站序展开为站台节点和乘车边。"""
+
         nonlocal next_node
+        # 相邻站序的沿线里程；缺少沿线值时用直线距离乘经验系数估算
         ride = {
             (str(r.line_id), int(r.from_sequence), int(r.to_sequence)): (
                 float(r.dist_route_m)
@@ -371,6 +400,7 @@ def build(params: Params = DEFAULT, verbose: bool = True) -> Graph:
     walk_comp_size = np.zeros(n_nodes, dtype=np.int32)
     walk_comp_size[:n_walk] = walk_comp
 
+    # 建图结果摘要，便于日志检查、缓存复核和报告引用
     stats = {
         "n_nodes": int(n_nodes),
         "n_walk_nodes": int(n_walk),
@@ -405,6 +435,7 @@ def build(params: Params = DEFAULT, verbose: bool = True) -> Graph:
 
 
 def load_or_build(cache: bool = True, params: Params = DEFAULT, verbose: bool = True) -> Graph:
+    """优先加载图缓存；缓存不存在时重新构建并按需写回。"""
     path = CACHE / "v1" / "multimodal.npz"
     if cache and path.exists():
         if verbose:

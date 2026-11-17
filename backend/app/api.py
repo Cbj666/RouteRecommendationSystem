@@ -1,21 +1,24 @@
 # -*- coding: utf-8 -*-
-r"""FastAPI service for the running-suitability prototype.
+"""城市慢跑后端 HTTP 接口模块。
 
-The Vue app does **not** read files from ``data/``.  This process owns the
-three map layers and exposes them as GeoJSON:
+所属模块：接口层。
 
-    GET  /health                     graph + dataset status
-    GET  /api/segments               scored road segments (bbox + limit)
-    GET  /api/segments/{osm_id}      one segment, all attributes
-    GET  /api/water-green            water / green polygons
-    GET  /api/pois                   sport POIs (points)
-    GET  /api/facilities             compat alias of /api/pois
-    GET  /api/layers                 machine-readable catalog
-    GET  /api/meta                   weights / score stats
-    POST /api/loops                  loop route generation
+作用：启动 FastAPI 服务，在进程内加载跑步图与三类地图数据，并向前端
+提供路段、面状底图、设施点、图层目录、评分说明和环线推荐接口。
+前端不再直接读取 ``data/`` 下的文件。
 
-All coordinates are WGS84 (EPSG:4326).  Responses are ``application/geo+json``
-and gzip-compressed by Starlette when the client asks for it.
+主要接口：
+    GET  /health                    服务和数据加载状态
+    GET  /api/segments              按范围返回评分路段
+    GET  /api/segments/{osm_id}     返回单条路段的全部属性
+    GET  /api/water-green           返回水体与绿地多边形
+    GET  /api/pois                  返回运动场馆点
+    GET  /api/facilities            /api/pois 的兼容别名
+    GET  /api/layers                返回机器可读的图层目录
+    GET  /api/meta                  返回权重、分数统计与数据口径
+    POST /api/loops                 生成候选环线
+
+坐标统一使用 WGS84（EPSG:4326）。GeoJSON 响应在客户端支持时会启用 gzip。
 
 启动：
     .\.venv\Scripts\python.exe -m uvicorn app.api:app --app-dir backend --port 8000
@@ -43,8 +46,10 @@ from shapely.geometry import mapping
 
 from . import datasets, paths, running
 
+# 进程级共享状态；服务启动时写入图、数据集加载时间和可用状态
 STATE: dict[str, Any] = {}
 
+# GeoJSON 接口的 OpenAPI 响应声明
 GEOJSON_RESPONSE = {
     200: {
         "description": "GeoJSON FeatureCollection / Feature（WGS84）",
@@ -55,6 +60,7 @@ GEOJSON_RESPONSE = {
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """管理应用生命周期：启动时加载图和图层，关闭时释放进程状态。"""
     t0 = time.time()
     STATE["graph"] = running.load_or_build()
     STATE["loaded_at"] = time.time()
@@ -78,6 +84,7 @@ async def lifespan(app: FastAPI):
     STATE.clear()
 
 
+# FastAPI 应用实例；模块级对象供 uvicorn 直接加载
 app = FastAPI(
     title="城市慢跑适宜性 API",
     description=(
@@ -88,8 +95,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Add GZip first, CORS second: CORS is the outer layer, so 4xx/5xx responses
-# still carry CORS headers.  Starlette only compresses bodies >= minimum_size.
+# 先注册 GZip、再注册 CORS：CORS 位于外层，异常响应也能带跨域头。
+# Starlette 只会压缩达到 minimum_size 的响应体。
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # TODO(卡片2): 生产环境请把允许来源改成前端实际域名
@@ -105,23 +112,24 @@ app.add_middleware(
 async def _dataset_unavailable(
     _request: Request, exc: datasets.DatasetUnavailable
 ) -> JSONResponse:
-    """A missing/corrupt data file is a server-side data problem, not a 500."""
+    """把数据文件缺失或损坏转换为 503，而不是算法异常的 500。"""
     return JSONResponse(status_code=503, content={"detail": str(exc)})
 
 
 @app.get("/", include_in_schema=False)
 def root() -> RedirectResponse:
-    """Open http://127.0.0.1:8000/ and land on the Swagger UI."""
+    """访问服务根路径时跳转到 Swagger 文档。"""
     return RedirectResponse(url="/docs", status_code=307)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon() -> Response:
-    """Browsers request this automatically; avoid a noisy 404 in the log."""
+    """响应浏览器自动请求的站点图标，避免日志出现无意义的 404。"""
     return Response(status_code=204)
 
 
 def _graph() -> running.RunGraph:
+    """获取已加载的跑步图；直接导入应用时按需补加载。"""
     g = STATE.get("graph")
     if g is None:  # 未执行 lifespan（例如直接 import 测试）
         g = running.load_or_build()
@@ -130,6 +138,8 @@ def _graph() -> running.RunGraph:
 
 
 class LoopRequest(BaseModel):
+    """环线生成请求的字段和基础取值范围。"""
+
     lng: float = Field(..., description="起点经度（WGS84）")
     lat: float = Field(..., description="起点纬度（WGS84）")
     target_m: float = Field(5000, ge=1000, le=20000, description="目标距离（米）")
@@ -141,8 +151,9 @@ class LoopRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# helpers
+# 通用辅助函数
 # ---------------------------------------------------------------------------
+# 经纬度范围元组：(min_lng, min_lat, max_lng, max_lat)
 BBox = tuple[float, float, float, float]
 
 
@@ -154,7 +165,7 @@ def _bbox(
     *,
     default: BBox | None = None,
 ) -> BBox | None:
-    """Validate the four query params; all-or-none, or fall back to default."""
+    """校验四个范围参数：要么全部提供，要么全部省略并使用默认值。"""
     values = (min_lng, min_lat, max_lng, max_lat)
     if all(value is None for value in values):
         return default
@@ -174,6 +185,7 @@ def _bbox(
 
 
 def _geojson(body: str, *, max_age: int = 60) -> Response:
+    """构建带缓存策略的 GeoJSON HTTP 响应。"""
     return Response(
         content=body,
         media_type="application/geo+json",
@@ -182,7 +194,7 @@ def _geojson(body: str, *, max_age: int = 60) -> Response:
 
 
 def _select(gdf: Any, fields: list[str] | tuple[str, ...]) -> Any:
-    """Select attribute columns plus the active geometry column."""
+    """选择指定属性列，并确保活动几何列始终保留。"""
     geometry = gdf.geometry.name
     columns = [name for name in fields if name in gdf.columns]
     if geometry not in columns:
@@ -191,7 +203,7 @@ def _select(gdf: Any, fields: list[str] | tuple[str, ...]) -> Any:
 
 
 def _plain(value: Any) -> Any:
-    """Convert numpy scalars and non-finite floats to JSON-safe values."""
+    """把 NumPy 标量和非有限浮点数转换为 JSON 可安全输出的值。"""
     if value is None or value is pd.NA:
         return None
     if isinstance(value, (np.floating, float)):
@@ -205,6 +217,7 @@ def _plain(value: Any) -> Any:
 
 
 def _relative(path: Path) -> str:
+    """尽量返回相对项目根目录的路径，便于接口稳定展示数据来源。"""
     try:
         return path.relative_to(paths.PROJECT).as_posix()
     except ValueError:
@@ -212,6 +225,7 @@ def _relative(path: Path) -> str:
 
 
 def _file_meta(path: Path) -> dict[str, Any]:
+    """返回数据文件的相对路径、大小和 UTC 更新时间。"""
     if not path.exists():
         return {}
     stat = path.stat()
@@ -225,18 +239,21 @@ def _file_meta(path: Path) -> dict[str, Any]:
 
 
 def _bounds(gdf: Any) -> list[float] | None:
+    """返回图层的经纬度总范围；空图层返回 None。"""
     if len(gdf) == 0:
         return None
     return [round(float(value), 6) for value in gdf.total_bounds]
 
 
 def _geometry_types(gdf: Any) -> list[str]:
+    """返回图层中出现的全部几何类型名称。"""
     return sorted({str(value) for value in gdf.geom_type.dropna().unique()})
 
 
 def _field_docs(
     gdf: Any, names: list[str], labels: dict[str, str]
 ) -> list[dict[str, str]]:
+    """生成字段名、中文标签和数据类型说明，供图层目录接口使用。"""
     return [
         {
             "name": name,
@@ -255,6 +272,7 @@ def _pois_response(
     exclude_leisure: bool,
     limit: int,
 ) -> Response:
+    """按范围、类别和数量限制生成设施点 GeoJSON 响应。"""
     gdf = datasets.pois()
     subset = datasets.clip(gdf, bbox)
     if kinds == "sport":
@@ -279,7 +297,7 @@ def _pois_response(
 
 
 # ---------------------------------------------------------------------------
-# endpoints
+# HTTP 接口
 # ---------------------------------------------------------------------------
 @app.get("/health")
 def health() -> dict:
@@ -463,6 +481,7 @@ def facilities(
 @app.get("/api/layers", summary="数据目录（字段、数量、来源、更新时间）")
 def layers() -> dict:
     """前端可用它判断图层是否就绪、字段含义，以及数据文件更新时间。"""
+    # 各图层独立构建目录；单个图层失败只标记为不可用，不影响其它图层。
     catalog: dict[str, Any] = {}
 
     try:
