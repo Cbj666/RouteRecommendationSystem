@@ -32,6 +32,25 @@ GPKG = RAW / "hubei" / "hubei-261013-free-OpenMap" / "hubei.gpkg"
 SHOWCASE = (114.285, 30.495, 114.455, 30.585)   # 东湖 / 珞珈山 / 水果湖
 GREEN = {"park", "forest", "grass", "meadow", "scrub", "recreation_ground"}
 
+# 权重与分档线从 score_summary.json 读，页脚不写死，避免和评分口径脱节
+_W_FALLBACK = {"safety": 0.36, "green": 0.26, "slope": 0.06,
+               "cross": 0.15, "fac": 0.06, "air": 0.11}
+_DIM_LABEL = {"safety": "安全", "green": "绿化", "slope": "坡度",
+              "cross": "过街", "fac": "设施", "air": "空气"}
+
+
+def weights_text() -> str:
+    """把六维权重排成一行中文，例如「安全 0.36 + 绿化 0.26 + …（合计 1.00）」。"""
+    import json
+    w = _W_FALLBACK
+    try:
+        w = json.loads((RUN / "score_summary.json").read_text(encoding="utf-8"))["weights"]
+    except Exception:  # noqa: BLE001 - 页脚文本不该因为缺文件而失败
+        pass
+    parts = [f"{_DIM_LABEL[k]} {float(w[k]):.2f}" for k in
+             ("safety", "green", "slope", "cross", "fac", "air")]
+    return " + ".join(parts) + f"（合计 {sum(float(v) for v in w.values()):.2f}）"
+
 
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
@@ -108,7 +127,7 @@ def main() -> int:
     ax.set_title("武汉东湖片区：慢跑环境适宜性评价（原型 v0）", fontsize=15, pad=12)
     fig.text(
         0.02, 0.015,
-        "评分 = 安全 0.30 + 绿化 0.25 + 坡度 0.20 + 过街 0.10 + 设施 0.10   |   "
+        f"评分 = {weights_text()}   |   "
         "数据：OSM 路网 / SRTM 30 m 坡度 / ESA WorldCover 10 m 树冠 / 高德运动场馆 POI",
         fontsize=8.5, color="#555555",
     )

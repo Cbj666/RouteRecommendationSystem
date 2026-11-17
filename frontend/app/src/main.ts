@@ -27,7 +27,7 @@ const Placeholder = {
         h('p', { style: 'color:#5F6F68;margin:0 0 22px' },
           '这里现在是占位页。删掉它，写你自己的 App.vue —— 数据、类型、接口函数都已经备好。'),
         h('ul', { style: 'margin:0 0 24px;padding-left:20px;color:#1F2A26' }, [
-          h('li', {}, '看接口：docs/接口契约.md（5 个端点 + 真实样例）'),
+          h('li', {}, '看接口：docs/接口契约.md（11 个端点 + 真实样例）'),
           h('li', {}, '看类型：src/types.ts（字段以后端真实响应为准）'),
           h('li', {}, '无后端联调：.env.local 里写 VITE_USE_MOCK=1'),
         ]),

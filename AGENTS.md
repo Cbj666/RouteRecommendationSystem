@@ -58,8 +58,8 @@ $env:PYTHONUNBUFFERED='1'
 | 路径 | 作用 | 入库 |
 |---|---|---|
 | `backend/app/running.py` | **跑步图 + 两种路线生成（当前核心）** | ✅ |
-| `backend/app/api.py` | FastAPI 九路由（图层 + 目录 + 元信息 + 环线） | ✅ |
-| `backend/app/datasets.py` | 三个图层的内存缓存、bbox 过滤、GeoJSON 序列化 | ✅ |
+| `backend/app/api.py` | FastAPI 11 路由（图层 + 目录 + 元信息 + 厕所 + 环线/单行线） | ✅ |
+| `backend/app/datasets.py` | 四个图层（路段/水绿/场馆/厕所）的内存缓存、bbox 过滤、GeoJSON 序列化 | ✅ |
 | `backend/app/config.py` | 参数（步速、车速、权重）：唯一"魔法数字"来源 | ✅ |
 | `backend/app/paths.py` | 全项目路径定义 | ✅ |
 | `backend/app/graph.py` | 多模式交通图（前版，接驳用） | ✅ |
@@ -140,12 +140,21 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 
 | 维度 | 权重 | 来源 | 代理性质 |
 |---|---:|---|---|
-| 安全 | 0.25 | 道路等级 + 距主干道距离 | 无路段车流量 |
-| 绿化 | 0.25 | 0.7×WorldCover 树冠 + 0.3×到绿地距离 | 不识别单排行道树 |
-| 坡度 | 0.15 | SRTM 30 m 平滑后梯度 | ±1 个百分点 |
-| 过街 | 0.10 | 200 m 内路口数 | 只数顶点度 ≥3 |
-| 设施 | 0.05 | 到最近设施点的指数衰减；设施 = 高德场馆 4,081 + OSM 配套 5,344 + 高德公厕 5,117 = 14,542 | 只算"到最近点"，不反映沿途密度 |
-| 空气 | 0.15 | CHAP 1 km 年均 NO₂，(40−x)/30 | 只做区域校正，圈层内差 0.2–1.8 µg/m³ |
+| 安全 | 0.36 | 道路等级 + 距主干道距离 | 无路段车流量 |
+| 绿化 | 0.26 | 0.7×WorldCover 树冠 + 0.3×到绿地距离 | 不识别单排行道树 |
+| 坡度 | 0.06 | SRTM 30 m 平滑后梯度 | ±1 个百分点 |
+| 过街 | 0.15 | 200 m 内路口数 | 只数顶点度 ≥3 |
+| 设施 | 0.06 | 到最近设施点的指数衰减；设施 = 高德场馆 4,081 + OSM 配套 5,344 + 高德公厕 5,117 = 14,542 | 只算"到最近点"，不反映沿途密度 |
+| 空气 | 0.11 | CHAP 1 km 年均 NO₂，(40−x)/30 | 只做区域校正，圈层内差 0.2–1.8 µg/m³ |
+
+**权重合计 1.00**（v2 口径，2026-11-17 定版，v5 = 上表），所以 `score` 是六维加权平均、满分 100。
+分档线：差 <35、一般 35–50、较好 50–65、好 65–80、很好 ≥80（旧 v1 口径合计 0.95、分档 40/55/70/85，
+旧 85 线高于全网最高分故"很好"恒为 0；v2 把 std 从 9.9 抬到 12.4，与 v1 秩相关 0.98、前 10% 重合 0.87）。
+
+调权重看效果：`backend/scripts/plot_score_heatmap.py` 用已存 `s_*` 列直接重算综合分并出热力图，
+不用重跑 pipeline（数学等价）；候选权重表在 `data/output/running/v1/weights/candidates.json`，
+每次运行的指标记在 `data/output/running/v1/weights/iterations.csv`。用法：
+`--preset v5 --bins 35,50,65,80`、`--w safety=0.36,...`、`--config candidates.json --preset v1,v5`。
 
 改权重：改 `build_running_dataset.py` 的 `W` 或调用 `generate_loops(prefs=...)`。
 **改评分必须重跑** `build_running_dataset.py`，再重跑 `run_loop_demo.py`（图缓存会过期）。

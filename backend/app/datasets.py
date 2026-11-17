@@ -20,6 +20,8 @@ from typing import Any
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import shapely
+from shapely.geometry import Point
 
 from . import paths
 
@@ -27,10 +29,11 @@ from . import paths
 RUN = paths.DATA / "processed" / "running" / "v1"
 WEB = paths.OUTPUT / "running" / "v1" / "web"
 
-# 三类地图数据源
+# 地图数据源：评分路段、水绿面、运动场馆、公共厕所
 SEGMENTS_GPKG = RUN / "segments.gpkg"
 WATER_GREEN_GEOJSON = WEB / "water_green.geojson"
 POI_CSV = RUN / "amap_sport_poi.csv"
+TOILET_CSV = RUN / "amap_toilet_poi.csv"
 
 # 未显式传入 bbox 时使用的默认路段视口，与原型展示范围一致
 DEFAULT_SEGMENT_BBOX = (114.305, 30.508, 114.405, 30.562)
@@ -48,8 +51,34 @@ POI_FIELDS = [
     "tel", "in_boundary",
 ]
 
+# 公共厕所接口字段；accessible 由类型/名称中的无障碍关键词派生
+TOILET_FIELDS = POI_FIELDS + ["accessible"]
+
+# 高德厕所数据中只有公共厕所/洗手间属于本系统要展示的设施
+TOILET_PATTERN = "公共厕所|洗手间"
+
 # 与评分口径一致，默认从地图设施层剔除的室内休闲娱乐类型
 EXCLUDED_POI_PATTERN = "台球|棋牌|游戏|歌舞|夜总会|网吧|KTV"
+
+# 六维权重与分档线：从 score_summary.json 读，避免字段说明与评分口径脱节。
+# 读不到时退回当前定版口径（v5，2026-11-17），不让一个文档字段拖垮导入。
+_WEIGHT_FALLBACK = {"safety": 0.36, "green": 0.26, "slope": 0.06,
+                    "cross": 0.15, "fac": 0.06, "air": 0.11}
+_BINS_FALLBACK = [35, 50, 65, 80]
+
+
+def _scoring_meta() -> tuple[dict[str, float], list[int]]:
+    """返回（六维权重、分档内线），来源 ``score_summary.json``。"""
+    try:
+        payload = json.loads((RUN / "score_summary.json").read_text(encoding="utf-8"))
+        weights = {k: float(v) for k, v in payload["weights"].items()}
+        bins = [int(b) for b in payload.get("grade_bins", _BINS_FALLBACK)]
+        return weights, bins
+    except Exception:  # noqa: BLE001 - 说明性字段缺失时退回定版口径
+        return dict(_WEIGHT_FALLBACK), list(_BINS_FALLBACK)
+
+
+_W, _BINS = _scoring_meta()
 
 # 路段字段的中文说明，供 /api/layers 返回机器可读数据目录
 SEGMENT_FIELD_LABELS = {
@@ -71,14 +100,18 @@ SEGMENT_FIELD_LABELS = {
     "fac_500m": "500 m 内设施数（参考值）",
     "no2_ugm3": "年均 NO₂（µg/m³，CHAP 2024）",
     "pm25_ugm3": "年均 PM2.5（µg/m³，CHAP 2024；只展示，不进评分）",
-    "s_safety": "安全子分 0–100（权重 0.25）",
-    "s_green": "绿化子分 0–100（权重 0.25）",
-    "s_slope": "坡度子分 0–100（权重 0.15）",
-    "s_cross": "过街子分 0–100（权重 0.10）",
-    "s_fac": "设施子分 0–100（权重 0.05）",
-    "s_air": "空气子分 0–100（权重 0.15）",
-    "score": "综合分 0–100（六项加权和，权重合计 0.95）",
-    "grade": "等级：差 / 一般 / 较好 / 好 / 很好",
+    "s_safety": f"安全子分 0–100（权重 {_W['safety']:.2f}）",
+    "s_green": f"绿化子分 0–100（权重 {_W['green']:.2f}）",
+    "s_slope": f"坡度子分 0–100（权重 {_W['slope']:.2f}）",
+    "s_cross": f"过街子分 0–100（权重 {_W['cross']:.2f}）",
+    "s_fac": f"设施子分 0–100（权重 {_W['fac']:.2f}）",
+    "s_air": f"空气子分 0–100（权重 {_W['air']:.2f}）",
+    "score": f"综合分 0–100（六维加权和，权重合计 {sum(_W.values()):.2f}）",
+    "grade": ("等级：" + " / ".join(
+        [f"{lab} <{_BINS[0]}" if i == 0 else
+         (f"{lab} ≥{_BINS[-1]}" if i == len(_BINS) else
+          f"{lab} {_BINS[i - 1]}–{_BINS[i]}")
+         for i, lab in enumerate(["差", "一般", "较好", "好", "很好"])])),
 }
 
 # 水体与绿地图层字段说明
@@ -96,6 +129,11 @@ POI_FIELD_LABELS = {
     "adname": "区名",
     "tel": "电话（多为空）",
     "in_boundary": "是否在武汉市界内",
+}
+
+TOILET_FIELD_LABELS = {
+    **POI_FIELD_LABELS,
+    "accessible": "是否包含无障碍/残障洗手间关键词",
 }
 
 
@@ -219,6 +257,42 @@ def _load_pois() -> gpd.GeoDataFrame:
     return _json_safe(gdf)
 
 
+def _load_toilets() -> gpd.GeoDataFrame:
+    """读取高德公共厕所 POI，并保留公共厕所/洗手间类型。"""
+    path = _require(TOILET_CSV, "请先运行 backend/scripts/fetch_amap_toilet_poi.py")
+    try:
+        df = pd.read_csv(path, encoding="utf-8-sig")
+    except Exception as exc:  # noqa: BLE001
+        raise DatasetUnavailable(f"读取 {path.name} 失败：{exc}") from exc
+
+    missing = {"poi_id", "name", "type", "lng", "lat"} - set(df.columns)
+    if missing:
+        raise DatasetUnavailable(f"{path.name} 缺少字段：{', '.join(sorted(missing))}")
+    df = df.dropna(subset=["lng", "lat"]).copy()
+    keep = df["type"].fillna("").str.contains(
+        TOILET_PATTERN, regex=True, na=False
+    )
+    df = df[keep].copy()
+    if df.empty:
+        raise DatasetUnavailable(f"{path.name} 中没有公共厕所/洗手间记录")
+    for col in ("poi_id", "name", "type", "typecode", "address", "adname", "tel"):
+        if col in df.columns:
+            df[col] = df[col].fillna("")
+    if "in_boundary" in df.columns and df["in_boundary"].dtype == object:
+        df["in_boundary"] = (
+            df["in_boundary"].astype(str).str.lower().isin(["true", "1", "yes"])
+        )
+    text = df["type"].fillna("") + "|" + df["name"].fillna("")
+    df["accessible"] = text.str.contains("无障碍|残障", regex=True, na=False)
+
+    gdf = gpd.GeoDataFrame(
+        df,
+        geometry=gpd.points_from_xy(df["lng"], df["lat"]),
+        crs=4326,
+    )
+    return _json_safe(gdf)
+
+
 def segments() -> gpd.GeoDataFrame:
     """返回缓存的评分路段数据。"""
     return _read_once("segments", _load_segments)
@@ -232,6 +306,38 @@ def water_green() -> gpd.GeoDataFrame:
 def pois() -> gpd.GeoDataFrame:
     """返回缓存的设施点数据。"""
     return _read_once("pois", _load_pois)
+
+
+def toilets() -> gpd.GeoDataFrame:
+    """返回缓存的公共厕所点数据。"""
+    return _read_once("toilets", _load_toilets)
+
+
+# 水体并集用于判断起点是否落在江/湖内部；只构建一次
+_water_union = None
+_water_lock = threading.Lock()
+
+
+def water_union():
+    """返回全部水体多边形的并集；用于起点合法性检查。"""
+    global _water_union
+    if _water_union is None:
+        with _water_lock:
+            if _water_union is None:
+                gdf = water_green()
+                geoms = [
+                    geom
+                    for geom, kind in zip(gdf.geometry, gdf["kind"])
+                    if kind == "water" and geom is not None and not geom.is_empty
+                ]
+                _water_union = shapely.union_all(geoms) if geoms else None
+    return _water_union
+
+
+def point_in_water(lng: float, lat: float) -> bool:
+    """判断 WGS84 点是否落在水体多边形内部。"""
+    union = water_union()
+    return bool(union is not None and union.contains(Point(lng, lat)))
 
 
 def clip(gdf: gpd.GeoDataFrame, bbox: tuple[float, float, float, float] | None):
@@ -254,6 +360,12 @@ def poi_fields() -> list[str]:
     """返回当前数据中实际存在的设施点输出字段。"""
     gdf = pois()
     return [c for c in POI_FIELDS if c in gdf.columns]
+
+
+def toilet_fields() -> list[str]:
+    """返回当前数据中实际存在的公共厕所输出字段。"""
+    gdf = toilets()
+    return [c for c in TOILET_FIELDS if c in gdf.columns]
 
 
 def feature_collection(
@@ -284,7 +396,7 @@ def status() -> dict[str, int | None]:
     """返回已缓存图层的行数，不主动触发加载；供健康检查使用。"""
     return {
         name: (int(len(_cache[name])) if name in _cache else None)
-        for name in ("segments", "water_green", "pois")
+        for name in ("segments", "water_green", "pois", "toilets")
     }
 
 
@@ -295,6 +407,7 @@ def preload() -> dict[str, str]:
         ("segments", segments),
         ("water_green", water_green),
         ("pois", pois),
+        ("toilets", toilets),
     ):
         try:
             loader()
