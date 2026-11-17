@@ -1,64 +1,112 @@
-# backend —— 分析内核与数据流水线
+# backend —— HTTP 接口层与分析内核
+
+后端现在同时负责两件事：
+
+1. **HTTP 接口层**：把 `segments.gpkg`、`water_green.geojson`、`amap_sport_poi.csv`
+   读进内存，统一以 GeoJSON 提供给 Vue。前端不再直接 `fetch` `data/` 下的文件。
+2. **分析内核**：跑步图、环线 / 单行线生成、坡度 / 树冠 / 评分流水线。
 
 ```text
-app/                     Python 包，可被未来 API 直接 import
+app/
+  api.py                 FastAPI 应用（9 个路由；启动时预热图 + 三个数据集）
+  datasets.py            三个图层的懒加载缓存、bbox 过滤、GeoJSON 序列化
+  running.py             跑步图 + 两种路线生成（当前核心）
   config.py              Params：全部建模参数（唯一的"魔法数字"来源）
   paths.py               全项目路径定义（不要在别处硬编码路径）
-  graph.py               多模式图：路网 + 公交 + 地铁 → scipy CSR
-  isochrone.py           最短路 / 时间面 / 等值面 / POI 统计 / 路径分解
+  graph.py               多模式图：路网 + 公交 + 地铁（前版，接驳用）
+  isochrone.py           等时圈内核（前版，保留，不要引用旧结论）
 scripts/                 命令行脚本（可在任意工作目录运行）
-  _paths.py              脚本共享路径 + 自动把 backend/ 加进 sys.path
-  prepare_dataset.py     原始数据 → data/processed/v1（冻结数据集）
-  data_audit.py          原始数据体检 → data/output/data_audit.json
-  verify_dataset.py      回读冻结数据集逐项校验
-  plot_dataset_overview.py  路网 + 站点 + POI 总览图
-  build_graph.py         建图并缓存到 data/processed/graph/v1/
-  run_pilot_isochrones.py   3 个试点 × 15/30/45 分钟 → GeoJSON + 三联图
-  fetch_*.py             高德抓取（已缓存，勿重跑）
-  merge_amap_bus.py      公交合并、站点聚类、边上表
-  extract_amap_shapes.py 从原始 JSON 提取线路几何
-  snap_metro_stations.py 地铁站点吸附
-  geo_utils.py           GCJ-02 → WGS84、haversine
+  build_slope.py         SRTM → 路段坡度
+  build_canopy.py        WorldCover → 路段树冠
+  build_air_quality_chap.py  CHAP → 逐段空气
+  build_running_dataset.py   六维评分 → segments.gpkg
+  run_loop_demo.py       环线演示 → GeoJSON + PNG
+  fetch_amap_sport_poi.py    高德场馆抓取（有缓存，勿重跑）
 requirements.txt
 ```
+
+## 起服务
+
+```powershell
+$env:PYTHONIOENCODING='utf-8'
+.\.venv\Scripts\python.exe -m uvicorn app.api:app --app-dir backend --port 8000
+```
+
+- 接口文档：<http://127.0.0.1:8000/docs>
+- 前端开发地址：<http://127.0.0.1:5173>（vite 已代理 `/api` 与 `/health`）
+- 启动日志会打印图规模与三个数据集行数；约 0.4 s + 0.9 s。
+
+## 端点
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/health` | 图规模 + 数据集行数 + 加载时间 |
+| GET | `/api/layers` | 图层目录：数量 / bbox / 字段中文名 / 源文件时间 |
+| GET | `/api/meta` | 权重、分档、数据版本 |
+| GET | `/api/segments` | bbox 内评分路段；`detail=basic` 14 字段 / `full` 26 字段 |
+| GET | `/api/segments/{osm_id}` | 单条路段全部属性 |
+| GET | `/api/water-green` | 水体 / 绿地；`kind=water|green|all` |
+| GET | `/api/pois` | 运动场馆点；默认剔除休闲娱乐 |
+| GET | `/api/facilities` | 旧版兼容别名（新代码用 `/api/pois`） |
+| POST | `/api/loops` | 环线 / 单行线候选 |
+
+字段、参数、错误码与示例见 [`docs/接口契约.md`](../docs/接口契约.md)。
+
+## 数据层约定
+
+- `app/datasets.py` 用模块级缓存 + 双检锁懒加载；`lifespan` 里 `preload()` 预热。
+- 三个源文件：
+
+  | 图层 | 文件 | 行数 |
+  |---|---:|---:|
+  | segments | `data/processed/running/v1/segments.gpkg` | 91,203 |
+  | water_green | `data/output/running/v1/web/water_green.geojson` | 3,586 |
+  | pois | `data/processed/running/v1/amap_sport_poi.csv` | 5,137 |
+
+- **`inf` → `null`**：`d_green_m` / `d_water_m` / `d_main_m` 用 `inf` 表示“搜索半径内没有”。
+  `GeoDataFrame.to_json()` 会写成 `Infinity`，浏览器 `JSON.parse` 不接受，所以
+  `datasets._json_safe()` 在加载时统一转成 `None`。
+- **bbox 过滤**用 `gdf.cx[...]`（GeoPandas 空间索引），不是逐行判断。
+- **gzip**：`GZipMiddleware(minimum_size=1024)`，`application/geo+json` 会被压缩；
+  默认视口的路段响应约 4.85 MB → 709 KB。
+- 源文件缺失时 `DatasetUnavailable` → 503，不阻塞服务启动，也不返回 500。
 
 ## 常用命令
 
 ```powershell
-$env:PYTHONIOENCODING='utf-8'
+# 数据（一次性；raw 不入库）
+.\.venv\Scripts\python.exe backend\scripts\fetch_dem.py
+.\.venv\Scripts\python.exe backend\scripts\fetch_amap_sport_poi.py
 
-.\.venv\Scripts\python.exe backend\scripts\build_graph.py
-.\.venv\Scripts\python.exe backend\scripts\run_pilot_isochrones.py
-.\.venv\Scripts\python.exe backend\scripts\verify_dataset.py
+# 计算（改了评分必须按顺序重跑）
+.\.venv\Scripts\python.exe backend\scripts\build_slope.py
+.\.venv\Scripts\python.exe backend\scripts\build_canopy.py
+.\.venv\Scripts\python.exe backend\scripts\build_air_quality_chap.py --year 2024
+.\.venv\Scripts\python.exe backend\scripts\build_running_dataset.py
+.\.venv\Scripts\python.exe backend\scripts\run_loop_demo.py
+
+# 起服务
+.\.venv\Scripts\python.exe -m uvicorn app.api:app --app-dir backend --port 8000
 ```
 
-## 图的结构
+改评分后要删除 `data/processed/running/graph/` 让图缓存重建（缓存会过期）。
 
-```text
-walk 顶点  <-> walk 顶点     长度 / 1.2 m/s
-walk 顶点  <-> 站点           接驳距离 / 1.2 m/s
-站点        -> 站台           候车（公交 480 s，地铁按线路 interval/2）
-站台(a)     -> 站台(b)        乘车（沿线里程 / 速度 + 停站）
-站台        -> 站点           0
+## 自检
+
+```powershell
+# 图与路线
+.\.venv\Scripts\python.exe -c "import sys; sys.path.insert(0,'backend'); from app import running; g=running.load_or_build(); lp=running.generate_loops(g,114.3547,30.5342,5000); print(len(lp), lp[0]['length_m'], round(lp[0]['score'],1))"
+
+# 接口（服务已起）
+curl.exe "http://127.0.0.1:8000/health"
+curl.exe "http://127.0.0.1:8000/api/layers"
+curl.exe "http://127.0.0.1:8000/api/segments?limit=2&detail=full"
 ```
 
-站点与站台分离后，**换乘时间 = 下车（0）+ 再等一次车**，不需要额外惩罚项。
+判据：`length_m` 在 4250–5750 之间，`score` 在 60–90 之间，路线闭合；
+`/health.datasets` 三项都非 `null`。
 
-## 规模与性能
+## 前版说明
 
-- 节点 1,015,242 / 有向边 2,174,254；
-- 建图 ~6 s（读 47,051 km 步行路网 + 27,837 个站台）；
-- 单次单源最短路 ~1 s；一次等时圈（3 档 + 时间面 + 出图）~2 s；
-- 图缓存 35 MB，加载 ~1 s。
-
-## 改参数
-
-`app/config.py` 的 `Params` 是 frozen dataclass：
-
-```python
-from app.config import Params
-from app.graph import build
-g = build(Params(walk_speed_mps=1.35, bus_wait_s=300))
-```
-
-**改参数必须重建图**（权重写在边上），当前缓存不区分参数，重建后请覆盖缓存。
+`graph.py` / `isochrone.py` 是「个性化等时圈」时期的内核，保留用于接驳与追溯。
+**新功能不要写回等时圈文档**；旧文档在 `docs/archive/等时圈版本/`。

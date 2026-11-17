@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作者上下文
 
 给接手本仓库的 AI Agent（以及人）看的说明。**改代码前先读完**。
-最后更新：2026-11-04
+最后更新：2026-11-17
 
 ---
 
@@ -46,6 +46,9 @@ $env:PYTHONUNBUFFERED='1'
 
 # 环线
 .\.venv\Scripts\python.exe backend\scripts\run_loop_demo.py
+
+# HTTP 接口（Vue 只认它，不读 data/ 静态文件）
+.\.venv\Scripts\python.exe -m uvicorn app.api:app --app-dir backend --port 8000
 ```
 
 ---
@@ -55,7 +58,8 @@ $env:PYTHONUNBUFFERED='1'
 | 路径 | 作用 | 入库 |
 |---|---|---|
 | `backend/app/running.py` | **跑步图 + 两种路线生成（当前核心）** | ✅ |
-| `backend/app/api.py` | FastAPI 五端点（loops / segments / facilities / meta / health） | ✅ |
+| `backend/app/api.py` | FastAPI 九路由（图层 + 目录 + 元信息 + 环线） | ✅ |
+| `backend/app/datasets.py` | 三个图层的内存缓存、bbox 过滤、GeoJSON 序列化 | ✅ |
 | `backend/app/config.py` | 参数（步速、车速、权重）：唯一"魔法数字"来源 | ✅ |
 | `backend/app/paths.py` | 全项目路径定义 | ✅ |
 | `backend/app/graph.py` | 多模式交通图（前版，接驳用） | ✅ |

@@ -1,0 +1,8 @@
+{
+  "v1": {"safety": 0.25, "green": 0.25, "slope": 0.15, "cross": 0.10, "fac": 0.05, "air": 0.15},
+  "v2b": {"safety": 0.36, "green": 0.22, "slope": 0.10, "cross": 0.16, "fac": 0.08, "air": 0.08},
+  "v2d": {"safety": 0.34, "green": 0.28, "slope": 0.10, "cross": 0.12, "fac": 0.07, "air": 0.09},
+  "v2e": {"safety": 0.30, "green": 0.30, "slope": 0.08, "cross": 0.14, "fac": 0.08, "air": 0.10},
+  "v2f": {"safety": 0.38, "green": 0.26, "slope": 0.08, "cross": 0.12, "fac": 0.06, "air": 0.10},
+  "v2g": {"safety": 0.33, "green": 0.25, "slope": 0.09, "cross": 0.14, "fac": 0.07, "air": 0.12}
+}
