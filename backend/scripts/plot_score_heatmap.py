@@ -27,6 +27,10 @@ Usage
     # named presets, rendered together + a comparison sheet
     python backend/scripts/plot_score_heatmap.py --preset v1,v2a,v2b
 
+    # 换分档线（默认 40/55/70/85），五档占比会跟着变
+    python backend/scripts/plot_score_heatmap.py --tag v3 --bins 35,50,65,80 \\
+        --w safety=0.37,green=0.25,slope=0.07,cross=0.15,fac=0.06,air=0.10
+
     # a JSON file of {版本名: {维度: 权重}}
     python backend/scripts/plot_score_heatmap.py --config my_weights.json
 
@@ -107,6 +111,16 @@ LW = {"primary": 2.1, "secondary": 1.8, "tertiary": 1.5, "trunk": 2.3,
 
 
 # ------------------------------------------------------------------ weights
+def parse_bins(text: str) -> list[int]:
+    """'35,50,65,80' -> [0,35,50,65,80,100]（四档线 → 五档）。"""
+    cuts = [int(float(v)) for v in text.replace(" ", "").split(",") if v]
+    if len(cuts) != len(GRADE_LABELS) - 1:
+        raise SystemExit(f"--bins 要 {len(GRADE_LABELS) - 1} 条分割线，收到 {len(cuts)} 条")
+    if not all(0 < c < 100 for c in cuts) or cuts != sorted(set(cuts)):
+        raise SystemExit(f"--bins 必须严格递增且在 0–100 内：{cuts}")
+    return [0] + cuts + [100]
+
+
 def parse_weights(text: str) -> dict[str, float]:
     """'safety=0.3,green=0.2' -> dict; unknown keys are a hard error."""
     out = {}
@@ -313,9 +327,10 @@ def draw_hist(ax, d: Data, score: np.ndarray, tag: str) -> None:
     for b in GRADE_BINS[1:-1]:
         ax.axvline(b, color="#555555", lw=0.8, ls=":", zorder=2)
     top = ax.get_ylim()[1]
+    ax.set_ylim(0, top * 1.17)
     for lab, lo, hi in zip(GRADE_LABELS, GRADE_BINS[:-1], GRADE_BINS[1:]):
-        ax.text((lo + hi) / 2, top * 0.96, lab, ha="center", va="top",
-                fontsize=8.5, color="#444444")
+        ax.text((lo + hi) / 2, top * 1.10, lab, ha="center", va="center",
+                fontsize=8.5, color="#555555")
     ax.set_xlim(0, 100)
     ax.set_xlabel("综合适宜性评分", fontsize=9)
     ax.set_ylabel("路段数", fontsize=9)
@@ -333,11 +348,13 @@ def draw_grades(ax, st: dict, base_st: dict, tag: str) -> None:
     ax.bar(x + w / 2, new, w, color=GRADE_COLORS, edgecolor="#555555",
            linewidth=0.5, label=tag)
     for xi, v in zip(x, new):
-        ax.text(xi + w / 2, v + 0.8, f"{v:.0f}", ha="center", va="bottom", fontsize=8)
+        ax.text(xi + w / 2, v + 0.8, f"{v:.0f}" if v >= 1 else f"{v:.1f}",
+                ha="center", va="bottom", fontsize=8)
     ax.set_xticks(x)
     ax.set_xticklabels(GRADE_LABELS, fontsize=9)
     ax.set_ylabel("路段占比 %", fontsize=9)
-    ax.set_title("分档占比", fontsize=11, loc="left", pad=6)
+    ax.set_title(f"分档占比（分割线 {','.join(str(b) for b in GRADE_BINS[1:-1])}）",
+                 fontsize=11, loc="left", pad=6)
     ax.legend(fontsize=8, framealpha=0.9)
     ax.set_ylim(0, max(max(new), max(base)) * 1.34)
     ax.grid(axis="y", color="#dddddd", lw=0.6)
@@ -471,12 +488,12 @@ def render_compare(results: "OrderedDict[str, dict]", d: Data) -> Path:
                        f"p10–p90={st['discrimination']['p10_p90']:.1f}")
     ax0.set_xlim(0, 100)
     ymax = ax0.get_ylim()[1]
+    ax0.set_ylim(0, ymax * 1.18)
     for b in GRADE_BINS[1:-1]:
         ax0.axvline(b, color="#aaaaaa", lw=0.9, ls=":")
     for lab, lo, hi in zip(GRADE_LABELS, GRADE_BINS[:-1], GRADE_BINS[1:]):
-        ax0.text((lo + hi) / 2, ymax * 0.99, lab, ha="center", va="top",
-                 fontsize=9, color="#888888")
-    ax0.set_ylim(0, ymax * 1.06)
+        ax0.text((lo + hi) / 2, ymax * 1.11, lab, ha="center", va="center",
+                 fontsize=9, color="#777777")
     ax0.set_xlabel("综合评分", fontsize=9)
     ax0.set_ylabel("密度", fontsize=9)
     ax0.legend(fontsize=8.5, ncol=2, loc="upper left", framealpha=0.92)
@@ -509,7 +526,7 @@ def render_compare(results: "OrderedDict[str, dict]", d: Data) -> Path:
           + _pad("IQR", 6, "right") + _pad("p10–90", 7, "right")
           + _pad("≥70%", 6, "right") + _pad("<40%", 6, "right")
           + _pad("H", 6, "right") + _pad("ρ", 6, "right")
-          + _pad("前10%", 6, "right") + "   分档 差/一般/较好/好")
+          + _pad("前10%", 6, "right") + "   分档 差/一般/较好/好/很好")
     ml = [h2, "  " + "-" * 92]
     for tag in tags:
         st = results[tag]
@@ -523,8 +540,9 @@ def render_compare(results: "OrderedDict[str, dict]", d: Data) -> Path:
                   + _pad(f"{st['discrimination']['grade_entropy']:.3f}", 6, "right")
                   + _pad(f"{st['vs_v1n']['spearman']:.3f}", 6, "right")
                   + _pad(f"{st['vs_v1n']['top10_overlap']:.2f}", 6, "right")
-                  + "   " + "/".join(f"{st['grade_share'][g]:.0f}" for g in
-                                     GRADE_LABELS[:-1]))
+                  + "   " + "/".join(
+                      (f"{st['grade_share'][g]:.0f}" if st['grade_share'][g] >= 1
+                       else f"{st['grade_share'][g]:.1f}") for g in GRADE_LABELS))
     ax_m.set_axis_off()
     ax_m.text(0.0, 1.0, "\n".join(ml), family=MONO, fontsize=9.4, va="top",
               ha="left", linespacing=1.62)
@@ -577,9 +595,18 @@ def main() -> int:
     ap.add_argument("--config", help="JSON 文件：{版本名: {维度: 权重}}")
     ap.add_argument("--tag", help="--w 单版本时的输出名")
     ap.add_argument("--clim", default="30,70", help="固定色标上下限，默认 30,70")
+    ap.add_argument("--bins", default=None,
+                    help="分档线（4 条），默认 40,55,70,85；例如 35,50,65,80")
     ap.add_argument("--dpi", type=int, default=170)
     ap.add_argument("--no-map", action="store_true", help="只算指标不画图（快）")
     args = ap.parse_args()
+
+    if args.bins:
+        GRADE_BINS[:] = parse_bins(args.bins)
+        print(f"[heat] 分档线 {GRADE_BINS} -> "
+              + " / ".join(f"{lab} {lo}–{hi}"
+                           for lab, lo, hi in zip(GRADE_LABELS, GRADE_BINS[:-1],
+                                                  GRADE_BINS[1:])), flush=True)
 
     sets = collect_sets(args)
     clim = tuple(float(v) for v in args.clim.split(","))
@@ -628,6 +655,7 @@ def main() -> int:
         payload = {k: v for k, v in st.items() if not k.startswith("_")}
         payload["png"] = st.get("_png")
         payload["color_limits"] = list(clim)
+        payload["grade_bins"] = list(GRADE_BINS)
         (OUT / tag / "stats.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         append_ledger({
@@ -646,6 +674,7 @@ def main() -> int:
             "rho_v1": round(st["vs_v1n"]["spearman"], 4),
             "top10_overlap": round(st["vs_v1n"]["top10_overlap"], 4),
             **{f"n_{g}": st["grades"][g] for g in GRADE_LABELS},
+            "bins": "/".join(str(b) for b in GRADE_BINS[1:-1]),
             "png": payload["png"],
         })
 

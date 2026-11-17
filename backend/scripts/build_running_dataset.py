@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Build the running/cycling suitability dataset (v0).
 
 One row per OSM road segment with a 0–100 suitability score and the
@@ -13,7 +13,8 @@ Indicators (all computable from data already in the repo)
     s_air       annual NO2 from the CHAP 1 km grid (regional correction only)
 
 Weights live in W below and are deliberately explicit: this is a
-multi-criteria score, not a measurement. They sum to 0.95 by design (v1 口径).
+multi-criteria score, not a measurement. They sum to 1.00 (v2 口径, 2026-11),
+so `score` is a weighted mean and 100 is reachable in principle.
 
 Output
     data/processed/running/v1/segments.gpkg      (layer segments)
@@ -41,11 +42,17 @@ GPKG = RAW / "hubei" / "hubei-261013-free-OpenMap" / "hubei.gpkg"
 CRS = 32650
 
 # --- scoring design -------------------------------------------------------
-# 六维。权重合计 0.95（沿用 v1 口径，便于与旧版分数直接对比，不要改成 1.0）：
-# 加 s_air 时从 safety 让 0.05、从 fac 让 0.05，总分尺度不变。
+# 六维，权重合计 1.00（v2 口径，2026-11 定版）。旧 v1 口径合计 0.95、满分只有 95，
+# 分数尺度不好解释；改成 1.00 后 score 就是六维加权平均，满分 100。
+# 调整依据（逐版权重见 data/output/running/v1/weights/iterations.csv）：
+#   safety 0.25→0.36、cross 0.10→0.15：这两维 std 最大（26.7 / 39.9），逐段区分度靠它们；
+#   slope  0.15→0.06：武汉坡度中位 88 分，几乎不区分，只用来压极端陡坡；
+#   air    0.15→0.11：CHAP 1 km 只做区域校正，同圈层内道路差异仅 0.2–1.8 µg/m³；
+#   fac    0.05→0.06：到最近设施点的距离，城内/城外差异大，但沿途密度不可知。
+# 效果：全网 std 9.9→12.4（+25%），与 v1 秩相关 0.98、前 10% 路段重合 0.87。
 W = {
-    "safety": 0.25, "green": 0.25, "slope": 0.15,
-    "cross": 0.10, "fac": 0.05, "air": 0.15,
+    "safety": 0.36, "green": 0.26, "slope": 0.06,
+    "cross": 0.15, "fac": 0.06, "air": 0.11,
 }
 
 ROAD_SAFETY = {
@@ -151,10 +158,11 @@ def main() -> int:
         # billiards / card rooms / arcades are indoor entertainment, not running support
         drop = am["type"].fillna("").str.contains("台球|棋牌|游戏|歌舞|夜总会|网吧|KTV", regex=True)
         print(f"[run] amap sports POIs: {len(am):,} -> {int((~drop).sum()):,} after dropping indoor entertainment")
-        am = am[~drop]
+        am = am[~drop].reset_index(drop=True)
         parts.append(gpd.GeoDataFrame(
             am[["poi_id", "name"]].copy(),
-            geometry=gpd.GeoSeries(shapely.points(am["lng"], am["lat"]), crs=4326),
+            # np.asarray keeps the geometry aligned with am's RangeIndex
+            geometry=gpd.GeoSeries(np.asarray(shapely.points(am["lng"], am["lat"])), crs=4326),
             crs=4326,
         ).to_crs(CRS))
         print(f"[run] amap sports POIs: {len(am):,}")
@@ -163,7 +171,7 @@ def main() -> int:
 
     poi = gpd.read_file(V1 / "poi.gpkg", layer="poi_points")
     poi = poi[poi["fclass"].isin(FAC_FCLASS)].to_crs(CRS)
-    parts.append(poi[["poi_id", "name"]].assign(name=poi["name"].fillna("")))
+    parts.append(poi[["poi_id", "name", "geometry"]].assign(name=poi["name"].fillna("")))
 
     fac = gpd.GeoDataFrame(pd.concat(parts, ignore_index=True), geometry="geometry", crs=CRS)
     fac = fac[fac.geometry.notna() & ~fac.geometry.is_empty].copy()
@@ -264,7 +272,8 @@ def main() -> int:
         1,
     )
     seg["grade"] = pd.cut(
-        seg["score"], bins=[0, 40, 55, 70, 85, 100],
+        # 分档线按实际分数分布重定（旧线 40/55/70/85 下"很好"恒为 0，因为最高分只有 ~85）
+        seg["score"], bins=[0, 35, 50, 65, 80, 100],
         labels=["差", "一般", "较好", "好", "很好"], include_lowest=True,
     ).astype(str)
 
@@ -307,7 +316,7 @@ def main() -> int:
             "绿化用 ESA WorldCover 10 m 树冠覆盖率（120 m 窗口），比街景绿视率更不受拍摄点影响",
             "机动车暴露用道路等级 + 距主干道距离代理，无路段流量数据",
             "空气用 CHAP 1 km 年均 NO2：满分=WHO 2021 指导值 10，零分=国标二级 40",
-            "设施 = 高德运动场馆 POI（4,081 个）+ OSM 公园/厕所/便利店，按到最近场馆的步行距离衰减",
+            "设施 = 高德运动场馆 4,081 + OSM 公园/厕所/便利店 5,344 + 高德公厕 5,117，共 14,542 个点，按到最近点的步行距离衰减",
         ],
     }
     (OUT / "score_summary.json").write_text(

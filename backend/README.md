@@ -25,6 +25,20 @@ scripts/                 命令行脚本（可在任意工作目录运行）
 requirements.txt
 ```
 
+## 组员第一次运行
+
+`.venv/` 是本地虚拟环境，已在 `.gitignore` 中，不会随 Git 仓库分发；
+每个组员在自己电脑上建一份（Python 3.13，64 位）：
+
+```powershell
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+```
+
+不需要激活环境；后面直接调用 `.\.venv\Scripts\python.exe` 即可。
+如果 `py` 命令不存在，改用 `python -m venv .venv`。
+
 ## 起服务
 
 ```powershell
