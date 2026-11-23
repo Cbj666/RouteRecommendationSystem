@@ -1,6 +1,6 @@
 # frontend —— 前端组从这里开始
 
-前端做两件事：**把环线画在地图上**、**把分数讲清楚**。数据全部来自后端的 **9 个接口**
+前端做两件事：**把路线画在地图上**、**把分数讲清楚**。数据全部来自后端的 **11 个接口**
 （契约见 [`docs/接口契约.md`](../docs/接口契约.md)）。**Vue 代码不读 `data/` 下的任何文件**。
 
 ```text
@@ -22,7 +22,7 @@ npm run dev
 
 打开 <http://127.0.0.1:5173> 就能看到页面，数据来自 `src/mocks/*.json`
 （旧版真实响应快照）。注意：mock 只覆盖 `health / meta / segments / facilities / loops`
-五个旧接口；**water-green、pois、layers 没有 mock**，要联调请开后端。
+五个旧接口；**water-green、pois、toilets、layers、routes 没有 mock**，要联调请开后端。
 
 ## 2. 接真后端
 
@@ -32,7 +32,7 @@ npm run dev
 ```
 
 `.env.local` 里 `VITE_USE_MOCK=0`，`npm run dev` 即可 —— vite 已把 `/api` 和 `/health`
-代理到 8000。后端启动时会预热三个数据集，`/health` 的 `datasets` 字段能自检。
+代理到 8000。后端启动时会预热四个数据集，`/health` 的 `datasets` 字段能自检。
 
 ## 3. 页面是空的，等你写
 
@@ -58,8 +58,10 @@ npm run dev
    - `GET /api/water-green`：水体 / 绿地底图，画在路网下面，`kind=water|green|all`；
    - `GET /api/pois?kinds=sport&exclude_leisure=true`：运动场馆点；
    - 字段名、`score` 配色、`null` 距离语义见 [`docs/接口契约.md`](../docs/接口契约.md)；
-4. 结果：`POST /api/loops` 的第 1 条画成粗线（白描边 + 黑实线两层），其余淡一点；
-   右栏显示 `score` 与 `JSON.parse(props.sub)` 的三个子分。
+4. 结果：`POST /api/routes` 的第 1 条画成粗线（白描边 + 黑实线两层），其余淡一点；
+   `mode=loop` 为闭合环线，`mode=oneway` 为 A→B 单行线（可传 `end_lng/end_lat` 指定终点）；
+   右栏显示 `score`、`target_ok` 与 `JSON.parse(props.sub)` 的三个子分。
+   旧 `POST /api/loops` 仍可用，新代码请用 `/api/routes`。
 
 **复刻标准**（配色、字号、间距、每一条文案）写在 [`docs/前端原型规格.md`](../docs/前端原型规格.md)。
 
@@ -90,9 +92,11 @@ frontend/app/src/
 | GET | `/api/segments/{osm_id}` | 单条路段全部属性 |
 | GET | `/api/water-green` | 水体 / 绿地（bbox + kind + simplify） |
 | GET | `/api/pois` | 运动场馆（bbox + kinds + exclude_leisure） |
+| GET | `/api/toilets` | 公共厕所（bbox + accessible + limit） |
 | GET | `/api/facilities` | 旧版别名，新代码不要用 |
+| POST | `/api/routes` | 路线生成：`mode=loop|oneway`，1–42 km，带起点校验 |
+| POST | `/api/loops` | 旧版环线别名，新代码不要用 |
 | GET | `/health` | 图与数据集自检 |
-| GET | `/api/meta` | 权重 / 分档 / 数据版本 |
-| POST | `/api/loops` | 生成候选环线 |
+| GET | `/api/meta` | 权重 / 分档 / 数据版本 / 六维说明 |
 
 问题找组长，或直接看 `docs/项目交接说明.md` §2.1 的组内分工。

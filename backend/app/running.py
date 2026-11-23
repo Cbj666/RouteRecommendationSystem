@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -60,12 +60,15 @@ class RunGraph:
     edge_attr: dict[str, np.ndarray]   # 每条有向边的原始环境属性
     subs: dict[str, np.ndarray]        # 每条有向边的安全、绿化、坡度子分
     n: int                            # 图节点总数
+    # 最近邻 KD 树只在首次吸附时构建；不参与 npz 缓存序列化
+    _tree: cKDTree | None = field(default=None, init=False, repr=False)
 
     def nearest(self, lng: float, lat: float) -> tuple[int, float]:
         """把用户坐标吸附到最近图节点，并返回节点索引与距离。"""
-        tree = cKDTree(np.column_stack([self.x, self.y]))
+        if self._tree is None:
+            self._tree = cKDTree(np.column_stack([self.x, self.y]))
         x, y = _utm(lng, lat)
-        d, i = tree.query([x, y], k=1)
+        d, i = self._tree.query([x, y], k=1)
         return int(i), float(d)
 
 
@@ -243,6 +246,86 @@ def _path(pred: np.ndarray, start: int, end: int) -> list[int]:
     return out
 
 
+def _angular_picks(
+    g: RunGraph, origin: int, band: np.ndarray, count: int
+) -> list[int]:
+    """在候选节点带内按方位角均匀抽样，避免所有路线朝同一方向。"""
+    if band.size == 0 or count <= 0:
+        return []
+    ang = np.arctan2(g.y[band] - g.y[origin], g.x[band] - g.x[origin])
+    order = np.argsort(ang)
+    count = min(count, len(order))
+    if count == 1:
+        return [int(band[order[len(order) // 2]])]
+    picked = [
+        int(band[order[int(i * (len(order) - 1) / (count - 1))]])
+        for i in range(count)
+    ]
+    return list(dict.fromkeys(picked))
+
+
+def _path_summary(
+    g: RunGraph,
+    nodes: list[int],
+    prefs: dict[str, float],
+    *,
+    mode: str,
+    target_m: float,
+    origin_snap_m: float,
+    destination_snap_m: float | None = None,
+) -> dict | None:
+    """把节点路径汇总为带距离、用时、偏好分与解释指标的路线字典。"""
+    if len(nodes) < 2:
+        return None
+
+    length = 0.0
+    attrs = {k: 0.0 for k in ATTRS}
+    sub = {k: 0.0 for k in PREF_KEYS.values()}
+    for a, b in zip(nodes[:-1], nodes[1:]):
+        lo, hi = g.csr_len.indptr[a], g.csr_len.indptr[a + 1]
+        pos = lo + np.searchsorted(g.csr_len.indices[lo:hi], b)
+        if pos >= hi or g.csr_len.indices[pos] != b:
+            continue
+        edge_len = float(g.csr_len.data[pos])
+        length += edge_len
+        for k in ATTRS:
+            attrs[k] += g.edge_attr[k][pos] * edge_len
+        for k in PREF_KEYS.values():
+            sub[k] += g.subs[k][pos] * edge_len
+
+    if length <= 0:
+        return None
+    for k in ATTRS:
+        attrs[k] /= length
+    for k in PREF_KEYS.values():
+        sub[k] /= length
+
+    pref_score = round(float(pref_score_of(sub, prefs)), 1)
+    error = length - target_m
+    route = {
+        "nodes": nodes,
+        "mode": mode,
+        "length_m": round(length, 1),
+        "target_m": round(float(target_m), 1),
+        "target_ok": bool(0.85 * target_m <= length <= 1.15 * target_m),
+        "length_error_m": round(error, 1),
+        "length_error_pct": round(error / target_m * 100.0, 1),
+        "minutes": round(length / RUN_SPEED_MPS / 60.0, 1),
+        "score": pref_score,
+        "pref_score": pref_score,
+        "mean_segment_score": round(float(attrs["score"]), 1),
+        "tree_share": round(float(attrs["tree_share"]), 3),
+        "slope_mean_pct": round(float(attrs["slope_mean_pct"]), 2),
+        "facility_m": round(float(attrs["d_fac_m"]), 0),
+        "cross_200m": round(float(attrs["cross_200m"]), 1),
+        "sub": {k: round(float(v), 1) for k, v in sub.items()},
+        "origin_snap_m": round(float(origin_snap_m), 1),
+    }
+    if destination_snap_m is not None:
+        route["destination_snap_m"] = round(float(destination_snap_m), 1)
+    return route
+
+
 def generate_loops(
     g: RunGraph,
     lng: float,
@@ -250,25 +333,31 @@ def generate_loops(
     target_m: float,
     prefs: dict[str, float] | None = None,
     max_candidates: int = 8,
+    *,
+    origin: int | None = None,
+    origin_snap_m: float | None = None,
 ) -> list[dict]:
-    """生成最多 ``max_candidates`` 条候选环线，并按偏好匹配分从高到低返回。"""
+    """生成最多 ``max_candidates`` 条候选环线，并按偏好匹配分从高到低返回。
+
+    ``origin`` 与 ``origin_snap_m`` 可由接口层传入，避免重复做最近邻吸附。
+    """
     prefs = prefs or {"green": 1.0, "safe": 1.0, "flat": 0.6}
-    origin, snap = g.nearest(lng, lat)
+    if origin is None:
+        origin, snap = g.nearest(lng, lat)
+    else:
+        snap = float(origin_snap_m or 0.0)
     pref = _pref_score(g, prefs)
     cost = _cost_matrix(g, pref)
 
     # 1. 从起点计算纯距离场，在目标距离半程附近选取折点
     dist_len = dijkstra(g.csr_len, directed=True, indices=origin)
     half = target_m / 2.0
-    band = np.flatnonzero(np.isfinite(dist_len) & (np.abs(dist_len - half) <= 0.12 * target_m))
+    band = np.flatnonzero(
+        np.isfinite(dist_len) & (np.abs(dist_len - half) <= 0.12 * target_m)
+    )
     if band.size == 0:
         return []
-    # 按方位角抽样，使候选折点在空间方向上尽量分散
-    ang = np.arctan2(g.y[band] - g.y[origin], g.x[band] - g.x[origin])
-    order = np.argsort(ang)
-    picked = [band[order[int(i * (len(order) - 1) / (max_candidates - 1))]]
-              for i in range(max_candidates)]
-    picked = list(dict.fromkeys(int(v) for v in picked))
+    picked = _angular_picks(g, origin, band, max_candidates)
 
     # 2. 所有折点共用一棵从起点出发的偏好最短路前驱树
     _, pred_out = dijkstra(cost, directed=True, indices=origin, return_predecessors=True)
@@ -289,7 +378,7 @@ def generate_loops(
                 if pos < hi and indices[pos] == v:
                     data[pos] *= RETRACE_PENALTY
         cost_back = csr_matrix((data, indices, indptr), shape=cost.shape)
-        dd, pred_back = dijkstra(
+        _, pred_back = dijkstra(
             cost_back, directed=True, indices=via, return_predecessors=True
         )
         back = _path(pred_back, via, origin)
@@ -297,45 +386,115 @@ def generate_loops(
             continue
 
         nodes = out + back[1:]
-        length = sum(float(g.csr_len[a, b]) for a, b in zip(nodes[:-1], nodes[1:]))
-        if not (0.85 * target_m <= length <= 1.15 * target_m):
+        route = _path_summary(
+            g,
+            nodes,
+            prefs,
+            mode="loop",
+            target_m=target_m,
+            origin_snap_m=snap,
+        )
+        if route is None or not route["target_ok"]:
             continue
         # 候选去重：与已保留环线共享超过一半节点时拒绝
-        if any(len(set(nodes) & set(l["nodes"])) > 0.5 * len(set(nodes)) for l in loops):
+        if any(
+            len(set(nodes) & set(other["nodes"])) > 0.5 * len(set(nodes))
+            for other in loops
+        ):
             continue
-
-        attrs = {k: 0.0 for k in ATTRS}
-        sub = {k: 0.0 for k in PREF_KEYS.values()}
-        for a, b in zip(nodes[:-1], nodes[1:]):
-            lo, hi = g.csr_len.indptr[a], g.csr_len.indptr[a + 1]
-            pos = lo + np.searchsorted(g.csr_len.indices[lo:hi], b)
-            if pos < hi and g.csr_len.indices[pos] == b:
-                L = float(g.csr_len.data[pos])
-                for k in ATTRS:
-                    attrs[k] += g.edge_attr[k][pos] * L
-                for k in PREF_KEYS.values():
-                    sub[k] += g.subs[k][pos] * L
-        for k in ATTRS:
-            attrs[k] /= max(length, 1e-6)
-        for k in PREF_KEYS.values():
-            sub[k] /= max(length, 1e-6)
-
-        loops.append(
-            {
-                "nodes": nodes,
-                "length_m": round(length, 1),
-                "minutes": round(length / RUN_SPEED_MPS / 60, 1),
-                "score": round(float(pref_score_of(sub, prefs)), 1),
-                "tree_share": round(attrs["tree_share"], 3),
-                "slope_mean_pct": round(attrs["slope_mean_pct"], 2),
-                "facility_m": round(attrs["d_fac_m"], 0),
-                "sub": {k: round(float(v), 1) for k, v in sub.items()},
-                "origin_snap_m": round(snap, 1),
-            }
-        )
+        loops.append(route)
 
     loops.sort(key=lambda r: -r["score"])
     return loops
+
+
+def generate_oneway(
+    g: RunGraph,
+    lng: float,
+    lat: float,
+    target_m: float,
+    prefs: dict[str, float] | None = None,
+    max_candidates: int = 8,
+    *,
+    end_lng: float | None = None,
+    end_lat: float | None = None,
+    origin: int | None = None,
+    origin_snap_m: float | None = None,
+    destination: int | None = None,
+    destination_snap_m: float | None = None,
+) -> list[dict]:
+    """生成 A→B 单行线。
+
+    未给终点时，在距起点 0.85–1.15 倍目标距离的节点带内按方位角选择
+    候选终点；给了 ``end_lng/end_lat`` 时以该终点为准，实际距离可能偏离
+    目标距离，因此返回 ``target_ok`` 供前端提示。
+    """
+    prefs = prefs or {"green": 1.0, "safe": 1.0, "flat": 0.6}
+    if origin is None:
+        origin, snap = g.nearest(lng, lat)
+    else:
+        snap = float(origin_snap_m or 0.0)
+    pref = _pref_score(g, prefs)
+    cost = _cost_matrix(g, pref)
+
+    if end_lng is not None and end_lat is not None:
+        if destination is None:
+            destination, dest_snap = g.nearest(end_lng, end_lat)
+        else:
+            dest_snap = float(destination_snap_m or 0.0)
+        if destination == origin:
+            return []
+        _, pred = dijkstra(cost, directed=True, indices=origin, return_predecessors=True)
+        nodes = _path(pred, origin, destination)
+        route = _path_summary(
+            g,
+            nodes,
+            prefs,
+            mode="oneway",
+            target_m=target_m,
+            origin_snap_m=snap,
+            destination_snap_m=dest_snap,
+        )
+        return [route] if route is not None else []
+
+    # 自动选择终点：纯距离场落在目标距离 85%–115% 的节点
+    dist_len = dijkstra(g.csr_len, directed=True, indices=origin)
+    band = np.flatnonzero(
+        np.isfinite(dist_len)
+        & (dist_len >= 0.85 * target_m)
+        & (dist_len <= 1.15 * target_m)
+    )
+    if band.size == 0:
+        return []
+
+    # 多取一些终点再过滤，避免偏好路径因绕行而超出长度容差
+    picked = _angular_picks(g, origin, band, max(max_candidates * 4, 8))
+    _, pred = dijkstra(cost, directed=True, indices=origin, return_predecessors=True)
+
+    routes = []
+    for via in picked:
+        nodes = _path(pred, origin, via)
+        route = _path_summary(
+            g,
+            nodes,
+            prefs,
+            mode="oneway",
+            target_m=target_m,
+            origin_snap_m=snap,
+        )
+        if route is None or not route["target_ok"]:
+            continue
+        if any(
+            len(set(nodes) & set(other["nodes"])) > 0.5 * len(set(nodes))
+            for other in routes
+        ):
+            continue
+        routes.append(route)
+        if len(routes) >= max_candidates:
+            break
+
+    routes.sort(key=lambda r: -r["score"])
+    return routes
 
 
 def pref_score_of(sub: dict[str, float], prefs: dict[str, float]) -> float:
@@ -349,22 +508,29 @@ def loop_geometry(g: RunGraph, loop: dict) -> list[list[float]]:
     return [[float(g.lng[i]), float(g.lat[i])] for i in loop["nodes"]]
 
 
-def to_geojson(g: RunGraph, loops: list[dict], name: str = "loop") -> dict:
-    """把候选环线转换为带排序和解释属性的 GeoJSON FeatureCollection。"""
+def to_geojson(g: RunGraph, routes: list[dict], name: str = "route") -> dict:
+    """把候选路线转换为带排序、起终点和解释属性的 GeoJSON FeatureCollection。"""
     feats = []
-    for i, lp in enumerate(loops, 1):
+    for i, route in enumerate(routes, 1):
         props = {
             k: (float(v) if isinstance(v, (float, np.floating)) else
-                int(v) if isinstance(v, (int, np.integer)) else v)
-            for k, v in lp.items() if k not in ("nodes", "sub")
+                int(v) if isinstance(v, (int, np.integer)) and not isinstance(v, (bool, np.bool_))
+                else bool(v) if isinstance(v, (bool, np.bool_)) else v)
+            for k, v in route.items() if k not in ("nodes", "sub")
         }
-        props["sub"] = json.dumps(lp["sub"])
+        nodes = route["nodes"]
+        props["sub"] = json.dumps(route["sub"])
         props["rank"] = i
+        props["name"] = name
+        props["start_lng"] = round(float(g.lng[nodes[0]]), 6)
+        props["start_lat"] = round(float(g.lat[nodes[0]]), 6)
+        props["end_lng"] = round(float(g.lng[nodes[-1]]), 6)
+        props["end_lat"] = round(float(g.lat[nodes[-1]]), 6)
         feats.append(
             {
                 "type": "Feature",
                 "properties": props,
-                "geometry": {"type": "LineString", "coordinates": loop_geometry(g, lp)},
+                "geometry": {"type": "LineString", "coordinates": loop_geometry(g, route)},
             }
         )
     return {"type": "FeatureCollection", "features": feats}

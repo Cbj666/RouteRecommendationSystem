@@ -2,15 +2,16 @@
 
 后端现在同时负责两件事：
 
-1. **HTTP 接口层**：把 `segments.gpkg`、`water_green.geojson`、`amap_sport_poi.csv`
-   读进内存，统一以 GeoJSON 提供给 Vue。前端不再直接 `fetch` `data/` 下的文件。
+1. **HTTP 接口层**：把 `segments.gpkg`、`water_green.geojson`、`amap_sport_poi.csv`、
+   `amap_toilet_poi.csv` 读进内存，统一以 GeoJSON 提供给 Vue。前端不再直接
+   `fetch` `data/` 下的文件。
 2. **分析内核**：跑步图、环线 / 单行线生成、坡度 / 树冠 / 评分流水线。
 
 ```text
 app/
-  api.py                 FastAPI 应用（9 个路由；启动时预热图 + 三个数据集）
-  datasets.py            三个图层的懒加载缓存、bbox 过滤、GeoJSON 序列化
-  running.py             跑步图 + 两种路线生成（当前核心）
+  api.py                 FastAPI 应用（11 个路由；启动时预热图 + 四个数据集）
+  datasets.py            四个图层的懒加载缓存、bbox 过滤、GeoJSON 序列化
+  running.py             跑步图 + 环线 / A→B 单行线生成（当前核心）
   config.py              Params：全部建模参数（唯一的"魔法数字"来源）
   paths.py               全项目路径定义（不要在别处硬编码路径）
   graph.py               多模式图：路网 + 公交 + 地铁（前版，接驳用）
@@ -48,7 +49,7 @@ $env:PYTHONIOENCODING='utf-8'
 
 - 接口文档：<http://127.0.0.1:8000/docs>
 - 前端开发地址：<http://127.0.0.1:5173>（vite 已代理 `/api` 与 `/health`）
-- 启动日志会打印图规模与三个数据集行数；约 0.4 s + 0.9 s。
+- 启动日志会打印图规模与四个数据集行数；约 0.4 s + 0.9 s。
 
 ## 端点
 
@@ -62,20 +63,24 @@ $env:PYTHONIOENCODING='utf-8'
 | GET | `/api/water-green` | 水体 / 绿地；`kind=water|green|all` |
 | GET | `/api/pois` | 运动场馆点；默认剔除休闲娱乐 |
 | GET | `/api/facilities` | 旧版兼容别名（新代码用 `/api/pois`） |
-| POST | `/api/loops` | 环线 / 单行线候选 |
+| GET | `/api/toilets` | 公共厕所点；`accessible=true` 只看无障碍 |
+| POST | `/api/routes` | **推荐入口**：`mode=loop` 环线 / `mode=oneway` A→B |
+| POST | `/api/loops` | 环线兼容别名（等价 `/api/routes?mode=loop`） |
 
+`target_m` 支持 **1–42 km**；起点会做水体、越界、>500 m 吸附校验，失败返回 422。
 字段、参数、错误码与示例见 [`docs/接口契约.md`](../docs/接口契约.md)。
 
 ## 数据层约定
 
 - `app/datasets.py` 用模块级缓存 + 双检锁懒加载；`lifespan` 里 `preload()` 预热。
-- 三个源文件：
+- 四个源文件：
 
   | 图层 | 文件 | 行数 |
   |---|---:|---:|
   | segments | `data/processed/running/v1/segments.gpkg` | 91,203 |
   | water_green | `data/output/running/v1/web/water_green.geojson` | 3,586 |
   | pois | `data/processed/running/v1/amap_sport_poi.csv` | 5,137 |
+  | toilets | `data/processed/running/v1/amap_toilet_poi.csv` | 5,979（清洗后） |
 
 - **`inf` → `null`**：`d_green_m` / `d_water_m` / `d_main_m` 用 `inf` 表示“搜索半径内没有”。
   `GeoDataFrame.to_json()` 会写成 `Infinity`，浏览器 `JSON.parse` 不接受，所以
@@ -115,10 +120,11 @@ $env:PYTHONIOENCODING='utf-8'
 curl.exe "http://127.0.0.1:8000/health"
 curl.exe "http://127.0.0.1:8000/api/layers"
 curl.exe "http://127.0.0.1:8000/api/segments?limit=2&detail=full"
+curl.exe "http://127.0.0.1:8000/api/toilets?accessible=true"
 ```
 
 判据：`length_m` 在 4250–5750 之间，`score` 在 60–90 之间，路线闭合；
-`/health.datasets` 三项都非 `null`。
+`/health.datasets` 四项（segments / water_green / pois / toilets）都非 `null`。
 
 ## 前版说明
 

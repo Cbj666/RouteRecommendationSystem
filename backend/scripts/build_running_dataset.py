@@ -55,6 +55,11 @@ W = {
     "cross": 0.15, "fac": 0.06, "air": 0.11,
 }
 
+# 分档线（右闭区间，边界值归下档）。旧线 40/55/70/85 下"很好"恒为 0，
+# 因为全网最高分只有 ~85；改成 35/50/65/80 后五档都有人。
+GRADE_BINS = [0, 35, 50, 65, 80, 100]
+GRADE_LABELS = ["差", "一般", "较好", "好", "很好"]
+
 ROAD_SAFETY = {
     "footway": 95, "path": 90, "pedestrian": 95, "steps": 70, "cycleway": 92,
     "living_street": 80, "residential": 70, "service": 62, "unclassified": 56,
@@ -272,9 +277,7 @@ def main() -> int:
         1,
     )
     seg["grade"] = pd.cut(
-        # 分档线按实际分数分布重定（旧线 40/55/70/85 下"很好"恒为 0，因为最高分只有 ~85）
-        seg["score"], bins=[0, 35, 50, 65, 80, 100],
-        labels=["差", "一般", "较好", "好", "很好"], include_lowest=True,
+        seg["score"], bins=GRADE_BINS, labels=GRADE_LABELS, include_lowest=True,
     ).astype(str)
 
     keep = [
@@ -298,6 +301,8 @@ def main() -> int:
         "segments": int(len(out)),
         "length_km": round(float(out["length_m"].sum() / 1000), 1),
         "weights": W,
+        "grade_bins": GRADE_BINS[1:-1],
+        "grade_labels": GRADE_LABELS,
         "score": {k: float(v) for k, v in dstats.items()},
         "grade_counts": {k: int(v) for k, v in out["grade"].value_counts().items()},
         "median_subscores": {

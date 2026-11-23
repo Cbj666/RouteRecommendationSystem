@@ -229,7 +229,12 @@ class Data:
 # ----------------------------------------------------------------- metrics
 def compute_stats(score: np.ndarray, baseline: np.ndarray) -> dict:
     p = np.percentile(score, [1, 2, 5, 10, 25, 50, 75, 90, 95, 98, 99])
-    counts = np.histogram(score, GRADE_BINS)[0]
+    # 与 build_running_dataset.py 的 pd.cut(include_lowest=True) 完全同口径：
+    # 区间是 (0,35] (35,50] (50,65] (65,80] (80,100]，边界值归下档。
+    # 用 np.histogram 会把 65.0 / 80.0 这类整点分归到上档，分档计数会偏几百段。
+    grades = pd.cut(pd.Series(score), bins=GRADE_BINS, labels=GRADE_LABELS,
+                    include_lowest=True, ordered=False)
+    counts = np.array([int((grades == lab).sum()) for lab in GRADE_LABELS])
     share = counts / len(score)
     ent = -np.sum([x * np.log(x) for x in share if x > 0]) / np.log(len(GRADE_LABELS))
     tops = len(score) // 10
@@ -546,8 +551,12 @@ def render_compare(results: "OrderedDict[str, dict]", d: Data) -> Path:
     ax_m.set_axis_off()
     ax_m.text(0.0, 1.0, "\n".join(ml), family=MONO, fontsize=9.4, va="top",
               ha="left", linespacing=1.62)
-    ax_m.set_title("区分度指标（基线 = v1 归一化 mean 54.2 / std 9.88 / p10–p90 25.8）",
-                   fontsize=10.5, loc="left", pad=4)
+    _b = d.baseline
+    _bp10, _bp90 = np.percentile(_b, [10, 90])
+    ax_m.set_title(
+        f"区分度指标（基线 = v1 归一化 mean {_b.mean():.1f} / std {_b.std():.2f} / "
+        f"p10–p90 宽 {_bp90 - _bp10:.1f}）",
+        fontsize=10.5, loc="left", pad=4)
 
     png = OUT / f"compare_{'-'.join(tags)}.png"
     fig.savefig(png, dpi=150, bbox_inches="tight")
