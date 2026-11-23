@@ -1,7 +1,11 @@
 /**
  * 慢跑适宜性色阶：与 matplotlib 出图 / PPT / reference 一致。
- * t = clip((score - 30) / 42, 0, 1)
+ * 五档分界来自随数据更新的元信息快照。
  */
+import meta from '../mocks/meta.json'
+export const GRADE_BINS = meta.grade_bins
+export const GRADE_LABELS = meta.grade_labels
+export const GRADE_COLORS = ['#d94f4f', '#e8a33d', '#8fbf6a', '#2e7a5d', '#15503c']
 export const STOPS: ReadonlyArray<readonly [number, string]> = [
   [0, '#d94f4f'],
   [0.25, '#e8a33d'],
@@ -29,6 +33,9 @@ export function ramp(t: number): string {
   return STOPS[STOPS.length - 1][1]
 }
 
-export function segmentColor(score: number): string {
-  return ramp((score - 30) / 42)
+export function segmentColor(score: number, grade?: unknown): string {
+  const gradeIndex = typeof grade === 'string' ? GRADE_LABELS.indexOf(grade) : -1
+  if (gradeIndex >= 0) return GRADE_COLORS[gradeIndex]
+  const index = GRADE_BINS.findIndex((boundary) => score <= boundary)
+  return GRADE_COLORS[index < 0 ? GRADE_COLORS.length - 1 : index]
 }

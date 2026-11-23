@@ -77,8 +77,8 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* 移动端（<=900px）：canvas 改为文档流，整页纵向滚动 */
-@media (max-width: 900px) {
+/* 小窗口与移动端改为文档流，整页纵向滚动。 */
+@media (max-width: 1100px), (max-height: 680px) {
   html,
   body,
   #app {

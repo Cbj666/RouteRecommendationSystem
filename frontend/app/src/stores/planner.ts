@@ -1,6 +1,14 @@
 import { computed, reactive } from 'vue'
-import { ApiError, fetchLoops } from '../api/client'
-import type { LoopCollection, LoopFeature } from '../types'
+import { apiMessage, fetchLoops } from '../api/client'
+import { VIEW, VIEW_PADDING, fitViewBBox } from '../lib/projection'
+import type {
+  Extent,
+  GeoManifest,
+  LayerCollection,
+  LoopCollection,
+  LoopFeature,
+  ViewBox,
+} from '../types'
 
 export type TabKey = 'map' | 'loops' | 'compare'
 export type Mode = 'loop' | 'oneway'
@@ -14,7 +22,7 @@ export interface Origin {
 /** M1 只放「有对应 mock 响应」的两个起点，M2 接后端再开放任意选点 */
 export const PRESET_ORIGINS: Origin[] = [
   { name: '武汉大学 · 八一路珞珈山', lng: 114.3547, lat: 30.5342 },
-  { name: '东湖绿道 · 湖光序曲', lng: 114.3805, lat: 30.549 },
+  { name: '东湖绿道 · 示例起点', lng: 114.411923, lat: 30.555589 },
 ]
 
 export interface PlannerState {
@@ -36,6 +44,18 @@ export interface PlannerState {
   /** 底图加载错误 */
   mapError: string
   mapReady: boolean
+  /** 地图范围：片区（central）/ 全城（city） */
+  extent: Extent
+  /** /geo/manifest.json：图层清单（null = 还没加载到） */
+  manifest: GeoManifest | null
+  /** 每个图层的开关（初始值来自 manifest.layers[].default） */
+  layersEnabled: Record<string, boolean>
+  /** 已加载的图层数据缓存：extent 来回切换不重复 fetch */
+  layerData: Record<string, LayerCollection | null>
+  /** 每个图层是否正在加载（面板显示 .layer-loading） */
+  layerLoading: Record<string, boolean>
+  /** 图层加载错误（面板显示 .layers-err） */
+  layerError: string
 }
 
 export const state = reactive<PlannerState>({
@@ -52,6 +72,12 @@ export const state = reactive<PlannerState>({
   emptyMsg: '',
   mapError: '',
   mapReady: false,
+  extent: 'central',
+  manifest: null,
+  layersEnabled: {},
+  layerData: {},
+  layerLoading: {},
+  layerError: '',
 })
 
 export const loopCount = computed(() => state.loops?.features.length ?? 0)
@@ -77,15 +103,12 @@ let requestId = 0
 let controller: AbortController | null = null
 
 export async function generate(): Promise<void> {
-  if (state.mode === 'oneway') {
-    state.error = '单行线 A→B 需要后端新增 mode 参数（契约缺口 G1），当前版本只支持环线。'
-    return
-  }
   controller?.abort()
   controller = new AbortController()
   const myId = ++requestId
 
   state.loading = true
+  state.loops = null
   state.error = ''
   state.emptyMsg = ''
   try {
@@ -94,6 +117,7 @@ export async function generate(): Promise<void> {
         lng: state.origin.lng,
         lat: state.origin.lat,
         target_m: state.targetM,
+        mode: state.mode,
         prefs: prefsPayload(),
         max_candidates: 8,
       },
@@ -109,10 +133,7 @@ export async function generate(): Promise<void> {
   } catch (e) {
     if (myId !== requestId) return
     if ((e as Error).name === 'AbortError') return
-    state.error =
-      e instanceof ApiError
-        ? `生成路线失败（HTTP ${e.status}）：${e.body.slice(0, 180)}`
-        : `生成路线失败：${(e as Error).message}`
+    state.error = apiMessage(e)
   } finally {
     if (myId === requestId) state.loading = false
   }
@@ -128,6 +149,7 @@ export function setMode(mode: Mode): void {
   if (state.mode === mode) return
   state.mode = mode
   state.error = ''
+  void generate()
 }
 
 export function setOrigin(origin: Origin, source: PlannerState['originSource'] = 'preset'): void {
@@ -168,4 +190,118 @@ export function nextLoop(): void {
 export function clearError(): void {
   state.error = ''
   state.emptyMsg = ''
+}
+
+/* ------------------------------------------------------------------
+ * 空间图层 / 地图范围（由 public/geo/manifest.json 驱动）
+ * ------------------------------------------------------------------ */
+
+/** 当前范围对应的投影视图：片区沿用 reference 的固定 VIEW，全城按数据 bbox 等比适配 */
+export const currentView = computed<ViewBox>(() => {
+  const manifest = state.manifest
+  if (state.extent === 'city' && manifest) {
+    const { lon0, lat0, lon1, lat1 } = manifest.view.city
+    return fitViewBBox([lon0, lat0, lon1, lat1], VIEW_PADDING)
+  }
+  return VIEW
+})
+
+/** 当前范围下实际渲染的「适宜性路网」变体 */
+export const activeRoadLayerId = computed<string>(() => {
+  if (state.extent === 'central') return 'roads_central'
+  return state.layersEnabled['roads_all'] ? 'roads_all' : 'roads_arterial'
+})
+
+/** 图层面板「适宜性路网」行的开关状态（不含单独的“全量路网”行） */
+export const roadSuitabilityEnabled = computed<boolean>(() => {
+  return state.extent === 'central'
+    ? !!state.layersEnabled['roads_central']
+    : !!state.layersEnabled['roads_arterial']
+})
+
+/**
+ * 当前应该显示的图层 id 列表（MapStage 懒加载 / 适配器渲染的依据）。
+ * - 开关关闭的不要；
+ * - 与当前 extent 不适配的不要（central 专属 / city 专属）；
+ * - 路网三变体只保留 activeRoadLayerId 一个，避免 roads 组被多个数据覆盖。
+ */
+export const activeLayerIds = computed<string[]>(() => {
+  const manifest = state.manifest
+  if (!manifest) return []
+  const out: string[] = []
+  for (const def of manifest.layers) {
+    if (def.variant === 'roads') {
+      if (def.id === activeRoadLayerId.value && state.layersEnabled[def.id]) out.push(def.id)
+      continue
+    }
+    if (!state.layersEnabled[def.id]) continue
+    if (def.extent !== 'both' && def.extent !== state.extent) continue
+    out.push(def.id)
+  }
+  return out
+})
+
+/** 图层文件 URL（manifest 只给文件名） */
+export function layerFileUrl(file: string): string {
+  return `/geo/${file}`
+}
+
+/** manifest 到达后初始化图层开关（default=true 首屏加载，其余懒加载） */
+export function setManifest(manifest: GeoManifest): void {
+  state.manifest = manifest
+  const enabled: Record<string, boolean> = {}
+  for (const def of manifest.layers) enabled[def.id] = def.default
+  state.layersEnabled = enabled
+  state.layerData = {}
+  state.layerLoading = {}
+  state.layerError = ''
+  state.mapError = ''
+}
+
+/** 切换片区 / 全城；路网变体开关状态跟随当前“适宜性路网”行 */
+export function setExtent(extent: Extent): void {
+  if (state.extent === extent) return
+  if (extent === 'city') {
+    state.layersEnabled['roads_arterial'] = !!state.layersEnabled['roads_central']
+  } else {
+    state.layersEnabled['roads_central'] = !!state.layersEnabled['roads_arterial']
+    // 全量路网只在全城下有意义，切回片区自动关闭，避免 30 MB 数据常驻
+    state.layersEnabled['roads_all'] = false
+  }
+  state.extent = extent
+  state.layerError = ''
+}
+
+/** 图层面板开关：'roads' 是适宜性路网合成行，'roads_all' 是全量路网 */
+export function toggleLayer(id: string): void {
+  if (id === 'roads') {
+    const target = state.extent === 'central' ? 'roads_central' : 'roads_arterial'
+    state.layersEnabled[target] = !state.layersEnabled[target]
+    state.layerError = ''
+    return
+  }
+  const def = state.manifest?.layers.find((layer) => layer.id === id)
+  if (id === 'roads_all') {
+    const next = !state.layersEnabled['roads_all']
+    state.layersEnabled['roads_all'] = next
+    // 全量路网数据只在全城视野下有完整意义
+    if (next) setExtent('city')
+    state.layerError = ''
+    return
+  }
+  if (!def) return
+  state.layersEnabled[id] = !state.layersEnabled[id]
+  state.layerError = ''
+}
+
+export function setLayerData(id: string, data: LayerCollection): void {
+  state.layerData[id] = data
+}
+
+export function setLayerLoading(id: string, loading: boolean): void {
+  state.layerLoading[id] = loading
+}
+
+export function setLayerError(message: string): void {
+  state.layerError = message
 }

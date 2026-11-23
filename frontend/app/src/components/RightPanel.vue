@@ -54,13 +54,14 @@ const badge = computed(() => (props.value ? loopBadge(props.value.score) : ''))
         <i>/ 100</i>
         <span class="badge">{{ badge }}</span>
       </div>
+      <p class="note">路线偏好匹配分</p>
 
       <div class="grid2">
         <div class="cell"><u>距离</u><b class="num">{{ fmtKm(props.length_m) }}</b></div>
         <div class="cell"><u>预计用时</u><b class="num">{{ fmtMinutes(props.minutes) }}</b></div>
         <div class="cell"><u>树冠覆盖</u><b class="num">{{ fmtPercent(props.tree_share) }}</b></div>
         <div class="cell"><u>平均坡度</u><b class="num">{{ fmtSlope(props.slope_mean_pct) }}</b></div>
-        <div class="cell"><u>最近场馆</u><b class="num">{{ fmtMeters(props.facility_m) }}</b></div>
+        <div class="cell"><u>设施距离</u><b class="num">{{ fmtMeters(props.facility_m) }}</b></div>
         <div class="cell"><u>起点偏差</u><b class="num">{{ fmtMeters(props.origin_snap_m) }}</b></div>
       </div>
 
@@ -89,8 +90,8 @@ const badge = computed(() => (props.value ? loopBadge(props.value.score) : ''))
       </div>
 
       <div class="note">
-        环线由「半程折返 + 回程边罚」生成；综合分按 安全 0.25 / 绿化 0.25 / 坡度 0.15 / 过街
-        0.10 / 空气 0.15 / 设施 0.05 加权。
+        匹配分由安全、绿化和平坦偏好计算。预计用时未计红绿灯停留。
+        路段六维综合分、年度空气数据和代理指标说明可在适宜性地图中查看。
       </div>
     </template>
 

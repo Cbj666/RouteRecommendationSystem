@@ -24,9 +24,10 @@ function show(): void {
   active.value = 0
 }
 
-function hide(): void {
+function hide(event: FocusEvent): void {
+  const input = event.currentTarget
   window.setTimeout(() => {
-    open.value = false
+    if (document.activeElement !== input) open.value = false
   }, 120)
 }
 
@@ -64,14 +65,13 @@ function onKeydown(e: KeyboardEvent): void {
         :key="t.key"
         class="tab"
         :class="{ on: t.key === state.tab }"
-        :disabled="t.key !== 'map'"
-        :title="t.key === 'map' ? undefined : '该页签在下一版接入'"
+        :aria-current="t.key === state.tab ? 'page' : undefined"
+        @click="state.tab = t.key"
       >
         {{ t.label }}
       </button>
     </nav>
-
-    <div class="search-wrap">
+    <div v-if="state.tab === 'loops'" class="search-wrap">
       <input
         v-model="query"
         class="search"
@@ -83,6 +83,7 @@ function onKeydown(e: KeyboardEvent): void {
         autocomplete="off"
         placeholder="搜索起点：东湖绿道 / 珞珈山 / 江滩…"
         @focus="show"
+        @input="show"
         @blur="hide"
         @keydown="onKeydown"
       />
@@ -166,10 +167,7 @@ function onKeydown(e: KeyboardEvent): void {
   font-weight: 600;
 }
 
-.tab:disabled {
-  color: var(--sub);
-  cursor: not-allowed;
-}
+.tab:not(.on):hover { background: var(--accent-weak); }
 
 .search-wrap {
   position: relative;

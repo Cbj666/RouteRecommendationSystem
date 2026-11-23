@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { activeLoop } from '../stores/planner'
+import { activeLoop, state } from '../stores/planner'
+import { GRADE_BINS, GRADE_COLORS, GRADE_LABELS } from '../lib/color'
 import { fmtKm } from '../lib/format'
 
 const length = computed(() => {
@@ -12,15 +13,19 @@ const length = computed(() => {
 <template>
   <div class="legend glass">
     <h5>慢跑适宜性</h5>
-    <div class="ramp" aria-hidden="true"></div>
-    <div class="lscale"><span>30</span><span>50</span><span>70</span><span>85</span></div>
-    <div class="lk">
-      <span class="line" aria-hidden="true"></span>推荐环线 {{ length }}
+    <div v-for="(label, index) in GRADE_LABELS" :key="label" class="grade-row">
+      <i :style="{ background: GRADE_COLORS[index] }"></i>{{ label }}
+      {{ index === 0 ? '≤ ' + GRADE_BINS[0] : index === 4 ? '> ' + GRADE_BINS[3] : '(' + GRADE_BINS[index - 1] + ', ' + GRADE_BINS[index] + ']' }}
+    </div>
+    <div v-if="state.tab === 'loops'" class="lk">
+      <span class="line" aria-hidden="true"></span>推荐路线 {{ length }}
     </div>
   </div>
 </template>
 
 <style scoped>
+.grade-row { display: flex; gap: 8px; align-items: center; font-size: 12px; line-height: 1.6; }
+.grade-row i { display: inline-block; width: 14px; height: 4px; }
 .legend {
   position: absolute;
   right: 380px;

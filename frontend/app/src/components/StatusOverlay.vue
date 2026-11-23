@@ -8,12 +8,12 @@ import { clearError, generate, state } from '../stores/planner'
       <b>底图加载失败</b>
       <p>{{ state.mapError }}</p>
       <p class="hint">
-        请先运行 npm run sync:geo（npm run dev 的 predev 会自动执行），确认
-        public/geo/ 下三份 geojson 存在。
+        请先运行 npm run sync:geo（npm run dev / build 的 pre 脚本会自动执行），确认
+        public/geo/manifest.json 与各图层 geojson 已生成。
       </p>
     </div>
 
-    <div v-else-if="state.emptyMsg" class="box notice glass-solid">
+    <div v-else-if="state.tab === 'loops' && state.emptyMsg" class="box notice glass-solid">
       <b>没有可用的环线</b>
       <p>{{ state.emptyMsg }}</p>
       <div class="acts">
@@ -22,7 +22,7 @@ import { clearError, generate, state } from '../stores/planner'
       </div>
     </div>
 
-    <div v-else-if="state.error" class="box err glass-solid">
+    <div v-else-if="state.tab === 'loops' && state.error" class="box err glass-solid">
       <p>{{ state.error }}</p>
       <div class="acts">
         <button class="act" @click="generate">重试</button>
@@ -30,7 +30,7 @@ import { clearError, generate, state } from '../stores/planner'
       </div>
     </div>
 
-    <div v-else-if="state.loading" class="pill">
+    <div v-else-if="state.tab === 'loops' && state.loading" class="pill">
       <span class="spin" aria-hidden="true"></span>正在生成环线…
     </div>
   </div>

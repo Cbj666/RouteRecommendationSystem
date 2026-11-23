@@ -1,6 +1,9 @@
 # 前端应用（Vue 3 + TypeScript + Vite）
 
 「跑步友好度 · 武汉」交互页：选起点 → 选目标距离/偏好 → 生成候选环线 → 地图高亮 + 右栏可解释指标。
+底图由 **13 个空间图层**组成（水体 / 绿地 / 行政边界 / 三级路网 / 地铁线站 / 公交线站 / 运动场馆 / 推荐热点 / 空气质量站），
+支持 **片区 / 全城** 两种范围与图层开关；数据检测口径、字段与来源见 [`docs/数据图层清单.md`](docs/数据图层清单.md)。
+
 视觉真源是 [`../reference/index.html`](../reference/index.html) 与 [`../../docs/前端原型规格.md`](../../docs/前端原型规格.md)；
 接口字段唯一依据是 [`../../docs/接口契约.md`](../../docs/接口契约.md)（v1.1）。
 
@@ -36,9 +39,11 @@ VITE_BAIDU_AK=         # 百度浏览器端 AK；留空则用 SVG 底图
 | `npm run dev` | 开发服务器（会先 `sync:geo`） |
 | `npm run build` | `vue-tsc --noEmit && vite build`（构建前自动 `sync:geo`） |
 | `npm run preview -- --host 127.0.0.1 --port 5173 --strictPort` | 预览构建产物；**截图/演示推荐**（无文件监听） |
-| `npm run sync:geo` | 从 `data/output/running/v1/web/` 复制底图到 `public/geo/` |
-| `node scripts\ui-smoke.mjs` | 无头冒烟：mock 模式 **21 项**断言 + 8 张截图（需先 build + preview） |
-| `$env:UI_REAL='1'; node scripts\ui-smoke.mjs` | 真后端冒烟：20 项，额外比对接口分数/耗时（需 `VITE_USE_MOCK=0` 构建 + 后端 8000） |
+| `npm run sync:geo` | 从 `data/` 生成 `public/geo/` 下 13 层 geojson + `manifest.json`（幂等，按源文件 mtime 跳过） |
+| `node scripts\ui-smoke.mjs` | 无头冒烟：mock 模式 **53 项**断言 + 截图（需先以 `VITE_USE_MOCK=1` build + preview） |
+| `$env:UI_REAL='1'; node scripts\ui-smoke.mjs` | 真后端冒烟：额外比对接口分数/耗时（需 `VITE_USE_MOCK=0` 构建 + 后端 8000） |
+
+只运行断言时可设置 `$env:UI_SCREENSHOTS='0'` 跳过截图。
 
 > 不要在 `npm run dev` 运行时用会做「原子写临时目录」的编辑器/工具改 `src`：Vite 的 FSWatcher
 > 会对 `*.tmpdir` 报 `EBUSY` 退出。已加 `server.watch.ignored`，但迭代截图仍建议 `build + preview`。
@@ -49,48 +54,65 @@ VITE_BAIDU_AK=         # 百度浏览器端 AK；留空则用 SVG 底图
 src/
   App.vue                画布缩放（桌面 1600×1000；≤900px 单列）+ 全局 ←/→
   components/            TopBar 搜索、LeftPanel 参数、MapStage、RightPanel 结果、
-                         LegendBox、FooterBar、StatusOverlay（四态）
-  stores/planner.ts      单例 reactive store：起点/距离/偏好/候选/请求竞态
-  map/                   MapAdapter 抽象 + SvgAdapter（BMapGL 适配器预留）
-  lib/                   projection（经纬度→1600×1000）、color（色阶）、format、geo
+                         LayerPanel 数据图层、LegendBox、FooterBar、StatusOverlay（四态）
+  stores/planner.ts      单例 reactive store：起点/距离/偏好/候选/请求竞态 +
+                         范围 extent / manifest / 图层开关与懒加载缓存
+  map/                   MapAdapter 抽象、SvgAdapter（manifest 驱动 13 图层）、
+                         layerConfig（叠放顺序与配色注册表）；BMapGL 适配器预留
+  lib/                   projection（片区固定 VIEW / 全城 fitView 动态适配）、
+                         color（色阶）、format、geo
   api/client.ts          6 个请求封装 + ApiError + mock 路由
   mocks/                 真实响应快照（含 4 组 loops）
   styles/                tokens.css（设计变量）、base.css（画布与移动端文档流）
 scripts/
-  sync-geo.mjs           底图同步
+  sync-geo.mjs           空间数据管线：13 层 geojson + manifest（纯 Node 内置）
   ui-smoke.mjs           Edge headless + CDP 冒烟
-public/geo/              构建时生成，已 gitignore（源数据在 data/output/.../web/）
+public/geo/              构建时生成，已 gitignore（源数据在 data/ 与 data/output/...）
+docs/数据图层清单.md      数据检测记录：16 个空间文件 / 13 个渲染图层
 ```
 
 ## 已实现
 
-- **适宜性地图**：8,005 段按 score 着色（#D94F4F→#15503C），环线白描边 + 黑线，起点标记（仅自定义点）。
-- **环线推荐**：起点（2 预设 + 搜索 + 地图点击）、3/5/10 km、四个偏好开关、生成、`‹ 1/3 ›` 与 ←/→ 切换候选。
-- **四态**：加载（顶部 pill + CTA 文案）、无结果（中性提示，不报错）、失败（红框 + HTTP 码）、底图失败。
+- **数据图层**：`public/geo/manifest.json` 驱动 13 层 SVG（水体 2,034 面 / 绿地 1,552 面 / 行政边界 /
+  核心路网 8,005 段 / 干道路网 19,298 段 / 全量路网 90,193 段 / 地铁 18 线 231 站 / 公交 1,124 线 7,823 站 /
+  运动场馆 5,137 / 热点 50 / 空气站 19）。默认开启 6 层；面板可逐个开关，数据懒加载并缓存。
+- **片区 / 全城**：片区沿用 PPT 的固定 1600×1000 视野；全城按武汉边界 bbox 等比适配（cos 纬度修正），
+  路网自动从 8,005 段核心切换为 19,298 段干道，另有「全量路网」开关（9 万段，加载约 7.5 s）。
+- **适宜性地图**：路网按 score 着色（#D94F4F→#15503C），环线白描边 + 黑线，起点与单行线终点标记。可滚轮、双指或用按钮缩放，放大后拖动平移。点击地图设置起点，切换片区／全城或点击「复位」恢复默认视野。
+- **环线推荐**：起点（2 预设 + 搜索 + 地图点击）、3/5/10 km、三个路线偏好开关、生成、`‹ 1/3 ›` 与 ←/→ 切换候选。
+- **四态**：加载（顶部 pill + CTA 文案）、无结果（中性提示，不报错）、失败（红框 + HTTP 码）、底图/manifest 失败。
 - **可解释面板**：距离/用时/树冠/坡度/场馆/吸附距离 + 安全/绿化/坡度三条子分 + 权重脚注。
-- **响应式**：1440×900（整页 0.9 缩放）、390×844（单列、地图 16:10、可纵向滚动、无横向滚动）。
+- **响应式**：1440×900（整页 0.9 缩放）；宽度不超过 1100 px 或高度不超过 680 px 时改用单列纵向滚动，地图保持 16:10，路线设置与结果在图层面板之前。
 - **mock 自测**：`/?mock=empty`、`/?mock=error`、`/?mock=slow`（仅 mock 模式）。
 
-## 已知限制（详见 `docs/接口契约.md` §6）
+## 当前交付范围（2026-11-23）
 
-| # | 限制 | 前端现状 |
-|---|---|---|
-| G1 | 后端无单行线 `mode` | 「单行线 A→B」置灰，title 说明 |
-| G2 | `/api/segments` 无 `s_air`/原始指标 | 底图与环线可解释；单段明细未做 |
-| G3 | loops 无 `grade`，score 口径不同 | 徽标按 `score>=75/65/55` 本地判定 |
-| G4 | `/api/facilities` 忽略 `kinds` | 第 4 开关仅图层，title 说明 |
-| G6 | 无地理编码 | 搜索仅 2 个预设 + 地图点选；接 AK 后可用 BMapGL `LocalSearch` |
-| G7 | 错误码不统一 | 按 4xx/5xx 分类展示后端原文 |
+- 顶部三页签切换，适宜性地图、环线推荐、起点对比分工明确。对比结果在切换后保留。
+- 真后端路线统一调用 `POST /api/routes`，支持环线、自动终点单行线和 1–42 km；单行线显示终点。
+- 双起点使用同一组距离与偏好独立请求，支持单侧无结果、失败重试和过期响应丢弃。
+- 适宜性地图点击道路，以小 bbox 请求 `/api/segments?detail=full` 后选择最近 40 m 内路段，展示六维子分、原始指标和权重。
+- 洗手间通过 `/api/toilets` 加载，可筛选无障碍。该开关只影响点图层。
+- 五档图例与返回的 `grade` 一致，当前元信息分界 35 / 50 / 65 / 80。六维评分权重通过 `/api/meta` 展示。
+- 地图保留构建期 `public/geo` 静态资产，运行时不直接读仓库 `data/`。更新数据后重新运行 `npm run sync:geo`。
+- mock 对比限两个预设起点的 5 km 快照；单行线、自由选点对比和洗手间筛选使用真实服务。
+- 搜索提供两个预设地点和地图选点。地图当前为 SVG，BMapGL 和在线地址搜索尚未接入。
+- 热点已有静态图层，支持开关展示。
 
-## 验收
+2026-11-23 验收通过：`npm run build` 成功，真后端 32/32、mock 37/37。检查记录在 `data/output/ui/delivery-real/checks.json` 与 `delivery-mock/checks.json`。
 
-- `npm run build` 零错误；
-- `node scripts\ui-smoke.mjs` 18/18；
-- `data/output/ui/m1/shot-1600.png` 与 `presentation/前端原型图.png` 面板区逐像素对齐（地图细线 1 px 抗锯齿差，已知）；
-- `data/output/ui/m2/mobile-390-full.png` 无横向滚动，整页可滚动。
+## 联调验收
 
-## 组内约定
+```powershell
+# 仓库根目录启动后端；没有 .venv 的机器可用本机已有 Python 环境
+.\.venv\Scripts\python.exe -m uvicorn app.api:app --app-dir backend --port 8000
+# frontend/app 下启动真后端前端
+$env:VITE_USE_MOCK='0'
+npm run dev
+# 另一终端，frontend/app 下运行
+$env:UI_REAL='1'
+node scripts/ui-smoke.mjs
+```
 
-- 类型只加不删；删字段必须同步 `docs/接口契约.md` 变更记录；
-- 页面不直接 `fetch`，统一走 `src/api/client.ts`；
-- WGS84→BD-09 只允许在 `map/baiduAdapter` 边界发生一次。
+无后端验收时使用 `VITE_USE_MOCK=1` 启动前端并将 `UI_REAL` 设为 0。脚本覆盖地图开关、三页签、路线候选、双点对比和窄屏。真实服务额外覆盖单行线、42 km、厕所筛选和路段详情，mock 额外覆盖加载、空结果和异常。
+
+可选截图用 `UI_SCREENSHOTS=1`；默认只输出检查记录。mock 路段详情数据按需加载，构建时会提示大于 500 kB 的示例分包。

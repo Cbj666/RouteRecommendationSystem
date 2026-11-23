@@ -8,12 +8,12 @@ import {
   togglePref,
   type PlannerState,
 } from '../stores/planner'
+import { USE_MOCK } from '../api/client'
 
 const prefRows: { key: keyof PlannerState['prefs']; label: string }[] = [
   { key: 'green', label: '尽量绿荫 / 滨水' },
   { key: 'safe', label: '避开机动车主干道' },
   { key: 'flat', label: '尽量平坦' },
-  { key: 'facility', label: '洗手间 / 补给点' },
 ]
 </script>
 
@@ -38,12 +38,18 @@ const prefRows: { key: keyof PlannerState['prefs']; label: string }[] = [
         </button>
         <button
           class="seg"
-          disabled
-          title="单行线 A→B 需要后端新增 mode 参数（契约缺口 G1），当前版本只支持环线"
+          :disabled="USE_MOCK"
+          :class="{ on: state.mode === 'oneway' }"
+          :title="USE_MOCK ? '连接后端后可生成单行线' : undefined"
+          @click="setMode('oneway')"
         >
           单行线 A→B
         </button>
       </div>
+      <label v-if="!USE_MOCK" class="custom-distance">自定义距离（km）
+        <input type="number" min="1" max="42" step="0.1" :value="state.targetM / 1000"
+          @change="(event) => { const km = Number((event.target as HTMLInputElement).value); if (km >= 1 && km <= 42) setTarget(km * 1000) }" />
+      </label>
     </div>
 
     <div class="row">
@@ -71,7 +77,6 @@ const prefRows: { key: keyof PlannerState['prefs']; label: string }[] = [
           role="switch"
           :aria-checked="state.prefs[p.key]"
           :aria-label="p.label"
-          :title="p.key === 'facility' ? '设施图层：后端暂未提供 kind 字段（契约缺口 G4），当前只保留开关' : undefined"
           @click="togglePref(p.key)"
         >
           <span>{{ p.label }}</span>
@@ -82,12 +87,14 @@ const prefRows: { key: keyof PlannerState['prefs']; label: string }[] = [
 
     <button class="cta" :disabled="state.loading" @click="generate">
       {{ state.loading ? '正在生成…' : '生成路线' }}
-      <small>环线：半程折返 + 回程双向惩罚</small>
+      <small>{{ state.mode === 'loop' ? '返回起点的闭合路线' : '系统按目标距离选择终点' }}</small>
     </button>
   </section>
 </template>
 
 <style scoped>
+.custom-distance { display: block; margin-top: 10px; font-size: 12px; }
+.custom-distance input { width: 64px; margin-left: 8px; padding: 4px; font: inherit; }
 .left {
   position: absolute;
   left: 24px;

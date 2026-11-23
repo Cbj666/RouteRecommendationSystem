@@ -7,13 +7,10 @@ import type { LoopCollection, LoopRequest, SegmentCollection } from '../types'
  *   VITE_USE_MOCK=0 → 请求 /api/*，由 vite 代理到 127.0.0.1:8000
  *   否则（默认，含未配置）→ 读 src/mocks/*.json（真实响应快照），不需要 Python 后端
  *
- * TODO（前端组）：
- *   - 错误提示区分 503（数据没生成）与 500（算法异常）；
- *   - 百度地图 AK 走 import.meta.env.VITE_BAIDU_AK，别写死在代码里。
  */
 
 /** 关闭 mock 必须显式写 0：未配置/漏配时默认走 mock，保证页面可演示 */
-const USE_MOCK = import.meta.env.VITE_USE_MOCK !== '0'
+export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== '0'
 
 const MOCKS = {
   health: () => import('../mocks/health.json'),
@@ -63,7 +60,7 @@ async function mockLoops(req: LoopRequest): Promise<LoopCollection> {
   }
 
   const nearDonghu =
-    Math.hypot(req.lng - 114.3805, req.lat - 30.549) <
+    Math.hypot(req.lng - 114.411923, req.lat - 30.555589) <
     Math.hypot(req.lng - 114.3547, req.lat - 30.5342)
 
   let key: keyof typeof LOOP_MOCKS = 'loops_5km_wuda'
@@ -86,8 +83,23 @@ export class ApiError extends Error {
   }
 }
 
-async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url)
+export function apiMessage(error: unknown): string {
+  if (!(error instanceof ApiError)) return '网络连接失败，请检查服务后重试。'
+  try {
+    const detail = JSON.parse(error.body).detail
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail)) return detail.map((item) => item.msg).join('；')
+  } catch { /* 非 JSON 响应使用通用提示。 */ }
+  return error.status === 503 ? '数据暂不可用，请稍后重试。' : '计算暂未完成，请重试。'
+}
+
+export function fetchToilets(accessible: boolean): Promise<import('../types').LayerCollection> {
+  return getJson('/api/toilets?limit=10000' + (accessible ? '&accessible=true' : ''))
+}
+
+export async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const timeout = AbortSignal.timeout(30000)
+  const res = await fetch(url, { signal: signal ? AbortSignal.any([signal, timeout]) : timeout })
   if (!res.ok) throw new ApiError(res.status, await res.text())
   return (await res.json()) as T
 }
@@ -104,7 +116,7 @@ export async function fetchMeta(): Promise<Record<string, unknown>> {
   return getJson('/api/meta')
 }
 
-/** GET /api/segments —— bbox 内评分路段（注意：不含 s_air） */
+/** GET /api/segments —— bbox 内评分路段 */
 export async function fetchSegments(
   bbox: [number, number, number, number],
   limit = 20000,
@@ -119,10 +131,10 @@ export async function fetchSegments(
   return getJson(`/api/segments?${q}`)
 }
 
-/** GET /api/facilities —— 设施点（kinds: sport | support | all） */
+/** GET /api/pois —— 运动场馆 */
 export async function fetchFacilities(
   bbox: [number, number, number, number],
-  kinds: 'sport' | 'support' | 'all' = 'all',
+  kinds: 'sport' | 'all' = 'all',
 ): Promise<Record<string, unknown>> {
   if (USE_MOCK) return mock('facilities')
   const [minLng, minLat, maxLng, maxLat] = bbox
@@ -130,20 +142,23 @@ export async function fetchFacilities(
     min_lng: String(minLng), min_lat: String(minLat),
     max_lng: String(maxLng), max_lat: String(maxLat), kinds,
   })
-  return getJson(`/api/facilities?${q}`)
+  return getJson(`/api/pois?${q}`)
 }
 
-/** POST /api/loops —— 生成候选环线（第 1 条是推荐） */
+/** POST /api/routes —— 生成环线或单行线（rank=1 推荐） */
 export async function fetchLoops(
   req: LoopRequest,
   signal?: AbortSignal,
 ): Promise<LoopCollection> {
-  if (USE_MOCK) return mockLoops(req)
-  const res = await fetch('/api/loops', {
+  if (USE_MOCK) {
+    if (req.mode === 'oneway') throw new ApiError(422, '{"detail":"单行线需要连接真实后端，请切换为环线查看示例。"}')
+    return mockLoops(req)
+  }
+  const res = await fetch('/api/routes', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
-    signal,
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30000)]) : AbortSignal.timeout(30000),
   })
   if (!res.ok) throw new ApiError(res.status, await res.text())
   return (await res.json()) as LoopCollection
