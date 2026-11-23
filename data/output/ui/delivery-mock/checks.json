@@ -1,0 +1,156 @@
+{
+  "real": false,
+  "checks": [
+    {
+      "name": "地图与数据图层就绪",
+      "ok": true
+    },
+    {
+      "name": "地图视图隐藏路线条件",
+      "ok": true
+    },
+    {
+      "name": "关闭水体",
+      "ok": true
+    },
+    {
+      "name": "恢复水体",
+      "ok": true
+    },
+    {
+      "name": "页签 1 高亮",
+      "ok": true
+    },
+    {
+      "name": "环线生成与地图路线",
+      "ok": true
+    },
+    {
+      "name": "切换候选",
+      "ok": true
+    },
+    {
+      "name": "键盘候选切换",
+      "ok": true
+    },
+    {
+      "name": "页签 2 高亮",
+      "ok": true
+    },
+    {
+      "name": "顶部导航保持可见",
+      "ok": true
+    },
+    {
+      "name": "对比可提交",
+      "ok": true
+    },
+    {
+      "name": "双起点真实路线与差值",
+      "ok": true
+    },
+    {
+      "name": "页签 0 高亮",
+      "ok": true
+    },
+    {
+      "name": "页签 2 高亮",
+      "ok": true
+    },
+    {
+      "name": "返回后对比结果保留",
+      "ok": true
+    },
+    {
+      "name": "390 px 对比无横向溢出",
+      "ok": true
+    },
+    {
+      "name": "页签 1 高亮",
+      "ok": true
+    },
+    {
+      "name": "窄屏推荐结果可见",
+      "ok": true
+    },
+    {
+      "name": "320 px 无横向溢出",
+      "ok": true
+    },
+    {
+      "name": "场景导航 empty",
+      "ok": true
+    },
+    {
+      "name": "页签 1 高亮",
+      "ok": true
+    },
+    {
+      "name": "路线状态 empty",
+      "ok": true
+    },
+    {
+      "name": "页签 2 高亮",
+      "ok": true
+    },
+    {
+      "name": "场景对比可提交",
+      "ok": true
+    },
+    {
+      "name": "双侧状态 empty",
+      "ok": true
+    },
+    {
+      "name": "场景导航 error",
+      "ok": true
+    },
+    {
+      "name": "页签 1 高亮",
+      "ok": true
+    },
+    {
+      "name": "路线状态 error",
+      "ok": true
+    },
+    {
+      "name": "页签 2 高亮",
+      "ok": true
+    },
+    {
+      "name": "场景对比可提交",
+      "ok": true
+    },
+    {
+      "name": "双侧状态 error",
+      "ok": true
+    },
+    {
+      "name": "场景导航 slow",
+      "ok": true
+    },
+    {
+      "name": "页签 1 高亮",
+      "ok": true
+    },
+    {
+      "name": "路线状态 slow",
+      "ok": true
+    },
+    {
+      "name": "页签 2 高亮",
+      "ok": true
+    },
+    {
+      "name": "场景对比可提交",
+      "ok": true
+    },
+    {
+      "name": "双侧状态 slow",
+      "ok": true
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "failedRequests": []
+}

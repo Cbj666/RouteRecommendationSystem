@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "sync:geo": "node scripts/sync-geo.mjs",
+    "predev": "npm run sync:geo",
     "dev": "vite",
+    "prebuild": "npm run sync:geo",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview"
   },

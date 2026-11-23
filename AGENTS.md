@@ -1,7 +1,7 @@
 # AGENTS.md — AI 协作者上下文
 
 给接手本仓库的 AI Agent（以及人）看的说明。**改代码前先读完**。
-最后更新：2026-11-17
+最后更新：2026-11-23
 
 ---
 
@@ -47,7 +47,7 @@ $env:PYTHONUNBUFFERED='1'
 # 环线
 .\.venv\Scripts\python.exe backend\scripts\run_loop_demo.py
 
-# HTTP 接口（Vue 只认它，不读 data/ 静态文件）
+# HTTP 接口（线上联调走它；底图另有 public/geo 静态兜底）
 .\.venv\Scripts\python.exe -m uvicorn app.api:app --app-dir backend --port 8000
 ```
 
@@ -78,7 +78,9 @@ $env:PYTHONUNBUFFERED='1'
 | `data/processed/running/graph/` | 跑步图缓存（37 MB） | ❌ 可重建 |
 | `data/raw/` | SRTM、WorldCover、OSM、高德缓存（约 12 GB） | ❌ |
 | `data/output/running/v1/` | 地图、环线图、GeoJSON | ✅ |
-| `frontend/prototype/` | 静态原型 + 截图 | ✅ |
+| `frontend/prototype/` | 静态原型 + 截图（旧视觉，已被 reference 取代） | ✅ |
+| `frontend/app/` | **Vue 交互页（当前前端交付物）**：13 个静态图层 + SVG 底图 + 三页签 + 环线/单行线 + 双起点对比 + 厕所筛选 + 路段详情 + 移动端；`npm run build` / `scripts/ui-smoke.mjs` | ✅ |
+| `frontend/reference/` | 零依赖 SVG 参考实现（视觉真源） | ✅ |
 | `docs/` | 三个入口文档（说明书 / 分工卡片 / 交接说明）+ 数据、汇报、过程、literature、archive 五个子目录 | ✅ |
 | `presentation/` | 答辩 PPT、原型图、热点图、讲稿、素材（`素材/*.png` 不入库，可重出） | ✅ |
 | `build/` | 生成脚本（配图、PPT、文档同步），**只入库 `*.py` 与 `proto/*.html`**，渲染产物不入库 | ✅ |
@@ -216,6 +218,7 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 | 文档 | 读它的场景 |
 |---|---|
 | `docs/项目交接说明.md` | 全项目到哪一步了 |
+| `docs/接口契约.md` | 前后端唯一依据（当前 v1.2：9 路由 + 前端 M3 静态图层资产） |
 | `docs/项目说明书.md` | 答辩口径、指标体系、边界 |
 | `docs/过程/开发进展-慢跑适宜性与环线.md` | 实现细节、踩过的坑、结果 |
 | `docs/数据/数据字典-跑步数据集.md` | 评分/环线字段 |
@@ -229,3 +232,7 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 | `docs/archive/等时圈版本/` | 旧选题，仅供追溯，**不要引用** |
 
 **改结构或改评分口径时，同步更新本文件与 `docs/项目交接说明.md`。**
+
+## 前端交付补充（2026-11-23）
+
+路线统一用 `/api/routes`，厕所用 `/api/toilets`，路段详情由小 bbox 的 `/api/segments?detail=full` 查询。保留静态地图兜底。真实联调用 `VITE_USE_MOCK=0` 与 `UI_REAL=1 node scripts/ui-smoke.mjs`。mock 对比只使用两个预设的 5 km 示例，BMapGL 与在线地址搜索尚未接入。
