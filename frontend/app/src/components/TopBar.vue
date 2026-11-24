@@ -6,6 +6,7 @@ const tabs = [
   { key: 'map', label: '适宜性地图' },
   { key: 'loops', label: '环线推荐' },
   { key: 'compare', label: '起点对比' },
+  { key: 'hotspots', label: '热点地图' },
 ] as const
 
 const query = ref('')

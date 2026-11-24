@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CSSProperties } from 'vue'
 import FooterBar from './components/FooterBar.vue'
 import ComparePage from './components/ComparePage.vue'
+import HotspotPage from './components/HotspotPage.vue'
 import LayerPanel from './components/LayerPanel.vue'
 import LeftPanel from './components/LeftPanel.vue'
 import LegendBox from './components/LegendBox.vue'
@@ -62,20 +63,23 @@ onBeforeUnmount(() => {
   <div class="viewport">
     <div class="stage" :class="{ mobile, 'map-mode': state.tab === 'map' }" :style="stageStyle">
       <TopBar />
-      <KeepAlive>
-        <ComparePage v-if="state.tab === 'compare'" />
-      </KeepAlive>
-      <template v-if="state.tab !== 'compare'">
-        <MapStage :browse="state.tab === 'map'" />
-        <MapDetails v-if="state.tab === 'map'" />
-        <template v-if="state.tab === 'loops'">
-          <LeftPanel />
-          <RightPanel />
+      <HotspotPage v-if="state.tab === 'hotspots'" />
+      <template v-else>
+        <KeepAlive>
+          <ComparePage v-if="state.tab === 'compare'" />
+        </KeepAlive>
+        <template v-if="state.tab !== 'compare'">
+          <MapStage :browse="state.tab === 'map'" />
+          <MapDetails v-if="state.tab === 'map'" />
+          <template v-if="state.tab === 'loops'">
+            <LeftPanel />
+            <RightPanel />
+          </template>
+          <LayerPanel />
+          <LegendBox />
+          <FooterBar />
+          <StatusOverlay />
         </template>
-        <LayerPanel />
-        <LegendBox />
-        <FooterBar />
-        <StatusOverlay />
       </template>
     </div>
   </div>
@@ -131,7 +135,12 @@ onBeforeUnmount(() => {
 }
 
 .stage :deep(.tabs) { order: 2; width: 100%; margin: 0; }
-.stage :deep(.tab) { flex: 1; padding-inline: 8px; }
+.stage :deep(.tab) {
+  flex: 1;
+  padding-inline: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
 
 .stage :deep(.search-wrap),
 .stage :deep(.search) {

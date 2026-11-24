@@ -10,7 +10,7 @@ import type {
   ViewBox,
 } from '../types'
 
-export type TabKey = 'map' | 'loops' | 'compare'
+export type TabKey = 'map' | 'loops' | 'compare' | 'hotspots'
 export type Mode = 'loop' | 'oneway'
 
 export interface Origin {
@@ -196,8 +196,12 @@ export function clearError(): void {
  * 空间图层 / 地图范围（由 public/geo/manifest.json 驱动）
  * ------------------------------------------------------------------ */
 
+/** 热点页专用视野：都市区，覆盖东湖—武大—光谷—汉口江滩。 */
+export const HOTSPOT_VIEW: ViewBox = fitViewBBox([114.24, 30.45, 114.50, 30.63], VIEW_PADDING)
+
 /** 当前范围对应的投影视图：片区沿用 reference 的固定 VIEW，全城按数据 bbox 等比适配 */
 export const currentView = computed<ViewBox>(() => {
+  if (state.tab === 'hotspots') return HOTSPOT_VIEW
   const manifest = state.manifest
   if (state.extent === 'city' && manifest) {
     const { lon0, lat0, lon1, lat1 } = manifest.view.city

@@ -1,7 +1,7 @@
 /**
  * 前端交付冒烟，使用 Edge headless 与 CDP。
  * UI_REAL=1 覆盖真实路线、42 km、厕所、详情、双点对比与单侧失败。
- * 默认 mock 覆盖候选、三页签、对比、加载/空/异常与窄屏。
+ * 默认 mock 覆盖候选、四页签、热点网格、对比、加载/空/异常与窄屏。
  * UI_URL 指向开发服务器。UI_SCREENSHOTS=1 可选截图。
  * 记录写入 data/output/ui/<UI_OUT>，默认 frontend-delivery。
  */
@@ -154,6 +154,10 @@ try {
   }
   await check('地图与数据图层就绪', "document.querySelector('g[data-layer=roads] path') && document.querySelector('.layers') && document.querySelector('.map-details')")
   await check('地图视图隐藏路线条件', "!document.querySelector('.left')")
+  await tab(3)
+  await check('热点页签与网格', "document.querySelector('.hotspot-rank h3')?.textContent.includes('武汉跑步热点地图') && document.querySelectorAll('.hotspot-overlay path').length > 50 && document.querySelector('.hotspot-detail')")
+  await capture('hotspot-desktop')
+  await tab(0)
   await click('[data-layer="water"] .layer-check')
   await check('关闭水体', "!document.querySelector('g[data-layer=water]')")
   await click('[data-layer="water"] .layer-check')
@@ -214,16 +218,19 @@ try {
     await check('修正后恢复双侧', "document.querySelectorAll('.compare-map path[data-side]').length === 2 && document.querySelector('.difference')")
   }
   await send('Emulation.setDeviceMetricsOverride', { width:390,height:844,deviceScaleFactor:1,mobile:false })
-  await check('390 px 对比无横向溢出', "document.documentElement.scrollWidth <= 390 && document.querySelectorAll('.tabs .tab').length === 3")
+  await check('390 px 对比无横向溢出', "document.documentElement.scrollWidth <= 390 && document.querySelectorAll('.tabs .tab').length === 4")
   await capture('compare-mobile')
   await tab(1)
   await check('窄屏推荐结果可见', "document.querySelector('.right') && document.documentElement.scrollWidth <= 390")
+  await tab(3)
+  await check('窄屏热点页可读', "document.querySelector('.hotspot-rank') && document.querySelector('.hotspot-detail') && document.documentElement.scrollWidth <= 390")
+  await capture('hotspot-mobile')
   await send('Emulation.setDeviceMetricsOverride', { width:320,height:568,deviceScaleFactor:1,mobile:false })
   await check('320 px 无横向溢出', "document.documentElement.scrollWidth <= 320")
   if (!REAL) {
     for (const scenario of ['empty', 'error', 'slow']) {
       await send('Page.navigate', { url: URL_APP + '?mock=' + scenario })
-      await check('场景导航 ' + scenario, "document.querySelectorAll('.tabs .tab').length === 3")
+      await check('场景导航 ' + scenario, "document.querySelectorAll('.tabs .tab').length === 4")
       await tab(1)
       await check('路线状态 ' + scenario, scenario === 'empty' ? "document.querySelector('.box.notice')" :
         scenario === 'error' ? "document.querySelector('.box.err')" : "document.querySelector('.pill')")

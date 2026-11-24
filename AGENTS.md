@@ -79,7 +79,7 @@ $env:PYTHONUNBUFFERED='1'
 | `data/raw/` | SRTM、WorldCover、OSM、高德缓存（约 12 GB） | ❌ |
 | `data/output/running/v1/` | 地图、环线图、GeoJSON | ✅ |
 | `frontend/prototype/` | 静态原型 + 截图（旧视觉，已被 reference 取代） | ✅ |
-| `frontend/app/` | **Vue 交互页（当前前端交付物）**：13 个静态图层 + SVG 底图 + 三页签 + 环线/单行线 + 双起点对比 + 厕所筛选 + 路段详情 + 移动端；`npm run build` / `scripts/ui-smoke.mjs` | ✅ |
+| `frontend/app/` | **Vue 交互页（当前前端交付物）**：13 个静态图层 + SVG 底图 + 四页签（含热点地图示例）+ 环线/单行线 + 双起点对比 + 厕所筛选 + 路段详情 + 移动端；`npm run build` / `scripts/ui-smoke.mjs` | ✅ |
 | `frontend/reference/` | 零依赖 SVG 参考实现（视觉真源） | ✅ |
 | `docs/` | 三个入口文档（说明书 / 分工卡片 / 交接说明）+ 数据、汇报、过程、literature、archive 五个子目录 | ✅ |
 | `presentation/` | 答辩 PPT、原型图、热点图、讲稿、素材（`素材/*.png` 不入库，可重出） | ✅ |
