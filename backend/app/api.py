@@ -139,6 +139,8 @@ async def lifespan(app: FastAPI):
         f"{STATE['graph'].n:,} nodes",
         flush=True,
     )
+    # 预建最近邻 KD 树，避免首个路线请求额外承担建树开销
+    STATE["graph"].warm()
 
     t1 = time.time()
     errors = datasets.preload()
@@ -149,6 +151,12 @@ async def lifespan(app: FastAPI):
     )
     for name, message in errors.items():
         print(f"[api] WARNING dataset {name} unavailable: {message}", flush=True)
+
+    # 预建水体并集，避免首个路线请求额外承担 shapely 并集开销
+    try:
+        datasets.water_union()
+    except Exception as exc:  # noqa: BLE001 - 预热失败不能阻塞服务启动
+        print(f"[api] WARNING water union unavailable: {exc}", flush=True)
 
     yield
     STATE.clear()

@@ -37,6 +37,20 @@ RUN_SPEED_MPS = 2.78          # 路线预计用时采用的基准速度，约 10
 RETRACE_PENALTY = 4.0         # 回程重走去程边的代价倍数；4 与 20 的残余率相近，
                               # 但 20 会明显减少候选数量，因此取 4
 
+# 长度容差（与接口层 LENGTH_TOLERANCE 一致）：候选路线总长须落在 0.85–1.15 倍目标内
+LENGTH_LOW = 0.85
+LENGTH_HIGH = 1.15
+
+# 折点带：目标距离半程 ±12%
+BAND_HALF = 0.12
+
+# 边代价上限：偏好子分取 0 时 1 + (100 - 0) / 40 = 3.5 倍距离
+MAX_COST_RATIO = 1.0 + 100.0 / 40.0
+
+# 局部子图半径系数：合法环线总长不超过 1.15 倍目标，环上任一点到起点的直线
+# 距离不超过总长一半（0.575 倍目标）；再留 15% 余量，避免贴边路径被误裁
+LOOP_RADIUS_RATIO = 0.5 * LENGTH_HIGH * 1.15
+
 # 路线沿线汇总使用的路段属性
 ATTRS = ["score", "tree_share", "slope_mean_pct", "cross_200m", "d_fac_m"]
 
@@ -63,10 +77,14 @@ class RunGraph:
     # 最近邻 KD 树只在首次吸附时构建；不参与 npz 缓存序列化
     _tree: cKDTree | None = field(default=None, init=False, repr=False)
 
-    def nearest(self, lng: float, lat: float) -> tuple[int, float]:
-        """把用户坐标吸附到最近图节点，并返回节点索引与距离。"""
+    def warm(self) -> None:
+        """预建最近邻 KD 树；服务启动时调用，避免首个请求承担建树开销。"""
         if self._tree is None:
             self._tree = cKDTree(np.column_stack([self.x, self.y]))
+
+    def nearest(self, lng: float, lat: float) -> tuple[int, float]:
+        """把用户坐标吸附到最近图节点，并返回节点索引与距离。"""
+        self.warm()
         x, y = _utm(lng, lat)
         d, i = self._tree.query([x, y], k=1)
         return int(i), float(d)
@@ -81,6 +99,57 @@ def _utm(lng, lat):
     if np.ndim(lng) == 0:
         return float(x), float(y)
     return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+
+
+@dataclass
+class LocalGraph:
+    """以某节点为中心的局部子图，用于把最短路限制在目标距离附近。
+
+    只保留两端都落在欧氏球内的有向边；节点按全局编号升序排列，因此子图里
+    算出的路径可以原样映射回全局节点，继续复用全局属性做路线汇总。
+    """
+
+    nodes: np.ndarray        # 局部编号 -> 全局节点编号
+    lookup: np.ndarray       # 全局编号 -> 局部编号；球外为 -1
+    keep: np.ndarray         # 全局边 -> 是否落在子图内
+    length: csr_matrix       # 子图的边长度矩阵
+    origin: int              # 起点在子图中的编号
+
+    def subset(self, csr: csr_matrix) -> csr_matrix:
+        """按同一结构裁剪任意边矩阵（如偏好代价），保证值与边一一对应。"""
+        return csr_matrix(
+            (csr.data[self.keep], self.length.indices, self.length.indptr),
+            shape=self.length.shape,
+        )
+
+
+def _build_local(g: RunGraph, origin: int, radius: float) -> LocalGraph:
+    """裁出以 ``origin`` 为圆心、半径 ``radius`` 米的局部子图。"""
+    g.warm()
+    nodes = np.asarray(
+        g._tree.query_ball_point([g.x[origin], g.y[origin]], radius), dtype=np.int64
+    )
+    nodes.sort()
+    mask = np.zeros(g.n, dtype=bool)
+    mask[nodes] = True
+
+    indptr, indices = g.csr_len.indptr, g.csr_len.indices
+    counts = np.diff(indptr)
+    # 只保留两端都在球内的边；CSR 每行的列已升序，掩码不会打乱原有顺序
+    keep = mask[indices] & np.repeat(mask, counts)
+    lookup = np.full(g.n, -1, dtype=np.int32)
+    lookup[nodes] = np.arange(len(nodes), dtype=np.int32)
+
+    row_of_edge = np.repeat(np.arange(g.n, dtype=np.int64), counts)
+    sub_counts = np.bincount(row_of_edge[keep], minlength=g.n)
+    sub_indptr = np.zeros(len(nodes) + 1, dtype=np.int64)
+    sub_counts_nodes = sub_counts[nodes]
+    np.cumsum(sub_counts_nodes, out=sub_indptr[1:])
+    cols = np.asarray(lookup[indices[keep]], dtype=np.int64)
+    length = csr_matrix(
+        (g.csr_len.data[keep], cols, sub_indptr), shape=(len(nodes), len(nodes))
+    )
+    return LocalGraph(nodes, lookup, keep, length, int(lookup[origin]))
 
 
 def build(verbose: bool = True) -> RunGraph:
@@ -349,39 +418,58 @@ def generate_loops(
     pref = _pref_score(g, prefs)
     cost = _cost_matrix(g, pref)
 
-    # 1. 从起点计算纯距离场，在目标距离半程附近选取折点
-    dist_len = dijkstra(g.csr_len, directed=True, indices=origin)
+    # 1. 从起点计算纯距离场，在目标距离半程附近选取折点；
+    #    limit 让搜索在带上界处停下，带上界以外的节点距离为 inf，不参与选点
     half = target_m / 2.0
+    band_high = half + BAND_HALF * target_m
+    dist_len = dijkstra(g.csr_len, directed=True, indices=origin, limit=band_high)
     band = np.flatnonzero(
-        np.isfinite(dist_len) & (np.abs(dist_len - half) <= 0.12 * target_m)
+        np.isfinite(dist_len) & (np.abs(dist_len - half) <= BAND_HALF * target_m)
     )
     if band.size == 0:
         return []
     picked = _angular_picks(g, origin, band, max_candidates)
 
-    # 2. 所有折点共用一棵从起点出发的偏好最短路前驱树
-    _, pred_out = dijkstra(cost, directed=True, indices=origin, return_predecessors=True)
+    # 2. 合法环线总长不超过 1.15 倍目标，环上任一点到起点的直线距离因此不超过
+    #    总长的一半；据此把去程与回程限制在起点附近的局部子图内，单次最短路
+    #    从全图 97.9 万节点降到数万节点
+    local = _build_local(g, origin, LOOP_RADIUS_RATIO * target_m)
+    cost_local = local.subset(cost)
+    local_origin = local.origin
+    nodes_of = local.nodes
+
+    # 3. 所有折点共用一棵从起点出发的偏好最短路前驱树
+    _, pred_out = dijkstra(
+        cost_local, directed=True, indices=local_origin, return_predecessors=True
+    )
 
     loops = []
     for via in picked:
-        out = _path(pred_out, origin, via)
+        via_local = int(local.lookup[via])
+        if via_local < 0:
+            continue
+        out = [int(nodes_of[i]) for i in _path(pred_out, local_origin, via_local)]
         if len(out) < 2:
             continue
-        # 3. 提高去程边在回程中的代价，再从折点寻找返回路径
-        used = {(a, b) for a, b in zip(out[:-1], out[1:])}
-        data = cost.data.copy()
-        indptr, indices = cost.indptr, cost.indices
+        # 4. 提高去程边在回程中的代价，再从折点寻找返回路径
+        used = set()
+        for a, b in zip(out[:-1], out[1:]):
+            la, lb = int(local.lookup[a]), int(local.lookup[b])
+            if la >= 0 and lb >= 0:
+                used.add((la, lb))
+        data = cost_local.data.copy()
+        indptr, indices = cost_local.indptr, cost_local.indices
         for a, b in used:
             for u, v in ((a, b), (b, a)):      # 正向和反向同时惩罚
                 lo, hi = indptr[u], indptr[u + 1]
                 pos = lo + np.searchsorted(indices[lo:hi], v)
                 if pos < hi and indices[pos] == v:
                     data[pos] *= RETRACE_PENALTY
-        cost_back = csr_matrix((data, indices, indptr), shape=cost.shape)
+        cost_back = csr_matrix((data, indices, indptr), shape=cost_local.shape)
         _, pred_back = dijkstra(
-            cost_back, directed=True, indices=via, return_predecessors=True
+            cost_back, directed=True, indices=via_local, return_predecessors=True
         )
-        back = _path(pred_back, via, origin)
+        back = [int(nodes_of[i]) for i in _path(pred_back, via_local, local_origin)]
         if len(back) < 2:
             continue
 
@@ -457,19 +545,29 @@ def generate_oneway(
         )
         return [route] if route is not None else []
 
-    # 自动选择终点：纯距离场落在目标距离 85%–115% 的节点
-    dist_len = dijkstra(g.csr_len, directed=True, indices=origin)
+    # 自动选择终点：纯距离场落在目标距离 85%–115% 的节点；
+    # limit 让搜索在带上界处停下，带上界以外的节点距离为 inf，不参与选点
+    dist_len = dijkstra(
+        g.csr_len, directed=True, indices=origin, limit=LENGTH_HIGH * target_m
+    )
     band = np.flatnonzero(
         np.isfinite(dist_len)
-        & (dist_len >= 0.85 * target_m)
-        & (dist_len <= 1.15 * target_m)
+        & (dist_len >= LENGTH_LOW * target_m)
+        & (dist_len <= LENGTH_HIGH * target_m)
     )
     if band.size == 0:
         return []
 
-    # 多取一些终点再过滤，避免偏好路径因绕行而超出长度容差
+    # 多取一些终点再过滤，避免偏好路径因绕行而超出长度容差；
+    # 单条路径的代价不超过 3.5 倍长度，限到 3.5×1.15×目标即可保证最优解不被裁掉
     picked = _angular_picks(g, origin, band, max(max_candidates * 4, 8))
-    _, pred = dijkstra(cost, directed=True, indices=origin, return_predecessors=True)
+    _, pred = dijkstra(
+        cost,
+        directed=True,
+        indices=origin,
+        limit=MAX_COST_RATIO * LENGTH_HIGH * target_m,
+        return_predecessors=True,
+    )
 
     routes = []
     for via in picked:
