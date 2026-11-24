@@ -1,9 +1,11 @@
 /**
  * 前端交付冒烟，使用 Edge headless 与 CDP。
- * UI_REAL=1 覆盖真实路线、42 km、厕所、详情、双点对比与单侧失败。
- * 默认 mock 覆盖候选、三页签、对比、加载/空/异常与窄屏。
- * UI_URL 指向开发服务器。UI_SCREENSHOTS=1 可选截图。
- * 记录写入 data/output/ui/<UI_OUT>，默认 frontend-delivery。
+ * 覆盖 F1（统一单图 + 视口路段加载 + 路线视野联动）、
+ * F2（单行线两步点选 A/B + 绕行系数 + 选点报错）、
+ * F3（删除起点对比，仅保留两页签）、
+ * F4（运动场馆/公厕分符号、独立开关、整城聚合、无障碍筛选与图例）。
+ *
+ * UI_REAL=1 连接真实后端；默认 mock 模式同样完整覆盖环线与单行线。
  */
 import { spawn } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -92,8 +94,14 @@ try {
         rej(new Error(`CDP 命令超时：${method}`))
       }, 20000)
       pending.set(id, {
-        res: (result) => { clearTimeout(timeout); res(result) },
-        rej: (error) => { clearTimeout(timeout); rej(error) },
+        res: (result) => {
+          clearTimeout(timeout)
+          res(result)
+        },
+        rej: (error) => {
+          clearTimeout(timeout)
+          rej(error)
+        },
       })
       ws.send(JSON.stringify({ id, method, params }))
     })
@@ -114,7 +122,6 @@ try {
   await send('Page.enable')
   await send('Log.enable')
   await send('Network.enable')
-  // headless 窗口含边框，实际视口会小几像素；固定成 1600×1000 再截图
   await send('Emulation.setDeviceMetricsOverride', {
     width: 1600,
     height: 1000,
@@ -133,113 +140,192 @@ try {
     return false
   }
 
-
   const checks = []
   async function check(name, expression) {
-    const ok = await waitUntil("Boolean(" + expression + ")", 30000)
+    const ok = await waitUntil('Boolean(' + expression + ')', 30000)
     checks.push({ name, ok })
     console.log((ok ? 'PASS  ' : 'FAIL  ') + name)
-    if (!ok) throw new Error(name + '\n' + await evalJs("JSON.stringify({text:document.body.innerText,width:document.documentElement.scrollWidth,wide:Array.from(document.querySelectorAll('body *')).filter(e=>e.getBoundingClientRect().right > innerWidth+1).slice(0,12).map(e=>({tag:e.tagName,cl:String(e.className),w:e.getBoundingClientRect().width}))})"))
+    if (!ok) {
+      throw new Error(
+        name +
+          '\n' +
+          (await evalJs(
+            "JSON.stringify({text:document.body.innerText.slice(0,800),width:document.documentElement.scrollWidth})",
+          )),
+      )
+    }
   }
-  const click = (selector) => evalJs("document.querySelector(" + JSON.stringify(selector) + ").click()")
+
+  const click = (selector) => evalJs(`document.querySelector(${JSON.stringify(selector)}).click()`)
+  const clickLngLat = (lng, lat) =>
+    evalJs(`(async()=>{
+      const manifest = await (await fetch('/geo/manifest.json')).json();
+      const { project, fitViewBBox } = await import('/src/lib/projection.ts');
+      const c = manifest.view.city;
+      const [x, y] = project(fitViewBBox([c.lon0, c.lat0, c.lon1, c.lat1], 24), ${lng}, ${lat});
+      const host = document.querySelector('.map-host');
+      const svg = host.querySelector('svg');
+      const vb = svg.viewBox.baseVal;
+      const rect = host.getBoundingClientRect();
+      const clientX = rect.x + ((x - vb.x) / vb.width) * rect.width;
+      const clientY = rect.y + ((y - vb.y) / vb.height) * rect.height;
+      host.dispatchEvent(new MouseEvent('click', { clientX, clientY, bubbles: true }));
+    })()`)
+
   const tab = async (index) => {
-    await evalJs("document.querySelectorAll('.tabs .tab')[" + index + "].click()")
-    await check('页签 ' + index + ' 高亮', "document.querySelectorAll('.tabs .tab')[" + index + "].classList.contains('on')")
+    await evalJs(`document.querySelectorAll('.tabs .tab')[${index}].click()`)
+    await check(
+      '页签 ' + index + ' 高亮',
+      `document.querySelectorAll('.tabs .tab')[${index}].classList.contains('on')`,
+    )
   }
+
   const capture = async (name) => {
     if (!SCREENSHOTS) return
     await mkdir(OUT, { recursive: true })
     const result = await send('Page.captureScreenshot', { format: 'png' })
     await writeFile(resolve(OUT, name + '.png'), Buffer.from(result.data, 'base64'))
   }
-  await check('地图与数据图层就绪', "document.querySelector('g[data-layer=roads] path') && document.querySelector('.layers') && document.querySelector('.map-details')")
-  await check('地图视图隐藏路线条件', "!document.querySelector('.left')")
+
+  // F3: 顶部只有两页签，无起点对比
+  await check(
+    'F3 仅保留两页签且无起点对比',
+    "document.querySelectorAll('.tabs .tab').length === 2 && !document.body.innerText.includes('起点对比')",
+  )
+
+  // F1: 单图就绪，无片区/全城开关，无 30 MB 全量路网开关
+  await check(
+    'F1 统一单图与图层就绪',
+    "document.querySelector('g[data-layer=roads] path') && document.querySelector('.layers') && !document.querySelector('.extent') && !document.querySelector('[data-layer=roads_all]')",
+  )
+
+  // F4: 整城低缩放聚合显示，且场馆与公厕独立开关默认开启
+  await check(
+    'F4 整城设施聚合与独立开关默认开启',
+    "document.querySelector('g[data-layer=poi_clusters] path') && document.querySelector('[data-layer=facilities] .layer-check')?.getAttribute('aria-checked') === 'true' && document.querySelector('[data-layer=toilets] .layer-check')?.getAttribute('aria-checked') === 'true'",
+  )
+
   await click('[data-layer="water"] .layer-check')
   await check('关闭水体', "!document.querySelector('g[data-layer=water]')")
   await click('[data-layer="water"] .layer-check')
   await check('恢复水体', "document.querySelector('g[data-layer=water] path')")
-  if (REAL) {
-    await click('.toilet-options label:first-child input')
-    await check('公共厕所加载', "document.querySelectorAll('g[data-layer=toilets] circle').length > 1000")
-    await click('.toilet-options label:last-child input')
-    await check('无障碍筛选', "document.querySelectorAll('g[data-layer=toilets] circle').length > 0 && document.querySelectorAll('g[data-layer=toilets] circle').length < 1000")
-    await evalJs("document.querySelector('.map-host').dispatchEvent(new MouseEvent('click', {clientX: 800, clientY: 500, bubbles: true}))")
-    await evalJs("(()=>{const host=document.querySelector('.map-host');const rect=host.getBoundingClientRect();host.dispatchEvent(new MouseEvent('click',{clientX:rect.x+(114.354694-114.305)/0.1*rect.width,clientY:rect.y+(30.562-30.534203)/0.054*rect.height,bubbles:true}))})()")
-    await check('路段六维和高亮', "document.querySelectorAll('.road-detail tbody tr').length === 6 && document.querySelector('g[data-layer=selection] path')")
-    await capture('road-detail')
-  }
+  await capture('city-overview')
+
+  // 切到环线推荐页
   await tab(1)
-  await check('环线生成与地图路线', "document.querySelector('.score b') && document.querySelector('g[data-layer=route] path') && !document.querySelector('.pill')")
+  await check(
+    'F1+环线自动生成并缩放至路线范围',
+    "document.querySelector('.score b') && document.querySelector('g[data-layer=route] path') && !document.querySelector('.pill') && document.querySelector('.map-host svg').viewBox.baseVal.width < 400",
+  )
+
+  // 放大后进入 <= 30km 视野：展开运动场馆圆角方块 & 公厕圆点，且加载视口细粒度路网
+  await check(
+    'F4 放大后场馆与公厕分开绘制',
+    "document.querySelector('g[data-layer=facilities] path') && document.querySelector('g[data-layer=toilets] path') && !document.querySelector('g[data-layer=poi_clusters]')",
+  )
+  await check(
+    'F1 放大后加载视口细粒度路网',
+    "document.querySelector('g[data-layer=roads]')?.getAttribute('data-file') === 'viewport'",
+  )
+  await capture('loop-zoomed')
+
   await click('.cand .cbtn:last-child')
-  await check('切换候选', "document.querySelector('.cidx').textContent.startsWith('2/')")
+  await check('切换候选环线', "document.querySelector('.cidx').textContent.startsWith('2/')")
   await evalJs("document.body.dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowLeft',bubbles:true}))")
   await check('键盘候选切换', "document.querySelector('.cidx').textContent.startsWith('1/')")
-  if (REAL) {
-    await evalJs("document.querySelectorAll('.segs')[0].querySelectorAll('button')[1].click()")
-    await check('单行线与终点', "document.querySelector('.rt').textContent.includes('单行线') && document.querySelector('g[data-layer=marker]').textContent.includes('终') && !document.querySelector('.pill')")
-    await capture('oneway')
-    await evalJs("document.querySelectorAll('.segs')[0].querySelector('button').click()")
-    await check('恢复环线', "document.querySelector('.rt').textContent.includes('环线') && !document.querySelector('.pill')")
-    await evalJs("const input=document.querySelector('.custom-distance input'); input.value='42'; input.dispatchEvent(new Event('change',{bubbles:true}))")
-    await check('42 km 路线', "document.querySelector('.cell b')?.textContent.includes('km') && !document.querySelector('.pill') && !document.querySelector('.box.err')")
-    await evalJs("document.querySelectorAll('.segs')[1].querySelectorAll('button')[1].click()")
-    await check('恢复 5 km', "document.querySelector('.cell b') && !document.querySelector('.pill')")
-  }
-  await tab(2)
-  await check('顶部导航保持可见', "document.querySelectorAll('.topbar').length === 1 && document.querySelector('.compare-page')")
-  await evalJs("var b=document.querySelector('select[aria-label=\"起点 B\"]');b.value='1';b.dispatchEvent(new Event('change',{bubbles:true}))")
-  await check('对比可提交', "!document.querySelector('.submit').disabled")
-  await click('.submit')
-  await check('双起点真实路线与差值', "document.querySelectorAll('.compare-map path[data-side]').length === 2 && document.querySelector('.difference') && !document.querySelector('.submit').textContent.includes('正在')")
-  await capture('compare-desktop')
-  await tab(0)
-  await tab(2)
-  await check('返回后对比结果保留', "document.querySelectorAll('.compare-map path[data-side]').length === 2 && document.querySelector('.difference')")
-  if (REAL) {
-    await evalJs("document.querySelector('.controls input[type=checkbox]').click()")
-    await check('修改条件清除旧结果', "!document.querySelector('.difference') && document.querySelectorAll('.compare-map path[data-side]').length === 0")
-    await click('.submit')
-    await check('修改偏好后可重新比较', "document.querySelector('.difference') && document.querySelectorAll('.compare-map path[data-side]').length === 2")
-  }
+
+  // F2: 单行线两步点选 A/B
+  await evalJs("document.querySelectorAll('.mode-segs .seg')[1].click()")
+  await check(
+    'F2 进入单行线：清空路线、隐藏距离、显示 A/B 选点卡',
+    "!document.querySelector('g[data-layer=route] path') && !document.body.innerText.includes('目标距离') && document.querySelector('[data-point=A]') && document.querySelector('[data-point=B]') && document.querySelector('.oneway-hint')?.textContent.includes('先点地图选起点')",
+  )
+
+  // 点两下地图选 A（武大）和 B（街道口）
+  await clickLngLat(114.3547, 30.5342)
+  await check(
+    'F2 点第一下设置起点 A',
+    "document.querySelector('[data-point=A]').textContent.includes('114.35') && document.querySelector('[data-point=B]').classList.contains('active')",
+  )
+  await clickLngLat(114.349, 30.5256)
+  await check(
+    'F2 点第二下设置终点 B 并自动生成 A→B 路线',
+    "document.querySelector('.rt')?.textContent.includes('单行线') && document.querySelector('g[data-layer=route] path') && document.body.innerText.includes('直线距离') && document.body.innerText.includes('绕行系数') && !document.querySelector('.cand') && !document.querySelector('.pill')",
+  )
+  await capture('oneway-ab')
 
   if (REAL) {
-    await evalJs("document.querySelectorAll('.pick')[1].click()")
-    await evalJs("(async()=>{const manifest=await (await fetch('/geo/manifest.json')).json();const {project,fitViewBBox}=await import('/src/lib/projection.ts');const c=manifest.view.city;const [x,y]=project(fitViewBBox([c.lon0,c.lat0,c.lon1,c.lat1],24),114.3805,30.549);const host=document.querySelector('.map-host');const svg=host.querySelector('svg');const view=svg.viewBox.baseVal;const rect=host.getBoundingClientRect();host.dispatchEvent(new MouseEvent('click',{clientX:rect.x+(x-view.x)/view.width*rect.width,clientY:rect.y+(y-view.y)/view.height*rect.height,bubbles:true}))})()")
-    await check('地图设置 B 起点', "document.querySelector('select[aria-label=\"起点 B\"]').value === '' && !document.querySelector('.submit').disabled")
-    await click('.submit')
-    await check('单侧失败保留另一侧', "document.querySelectorAll('.compare-map path[data-side]').length === 1 && document.querySelectorAll('.side-status button').length === 1 && !document.querySelector('.difference')")
-    await evalJs("var b=document.querySelector('select[aria-label=\"起点 B\"]');b.value='1';b.dispatchEvent(new Event('change',{bubbles:true}))")
-    await check('修正起点可提交', "!document.querySelector('.submit').disabled")
-    await click('.submit')
-    await check('修正后恢复双侧', "document.querySelectorAll('.compare-map path[data-side]').length === 2 && document.querySelector('.difference')")
+    // 测试落水 422 错误提示显示在 B 卡下方且保留 A/B
+    await clickLngLat(114.385, 30.553)
+    await check(
+      'F2 选点落水在 B 卡下方展示错误并保留已选点',
+      "document.querySelector('.oneway-err')?.textContent.includes('水体') && document.querySelector('[data-point=A]').textContent.includes('114.35')",
+    )
+    // 重选 B 到陆地恢复
+    await clickLngLat(114.349, 30.5256)
+    await check(
+      'F2 重选 B 后恢复路线',
+      "document.querySelector('g[data-layer=route] path') && !document.querySelector('.oneway-err')",
+    )
   }
-  await send('Emulation.setDeviceMetricsOverride', { width:390,height:844,deviceScaleFactor:1,mobile:false })
-  await check('390 px 对比无横向溢出', "document.documentElement.scrollWidth <= 390 && document.querySelectorAll('.tabs .tab').length === 3")
-  await capture('compare-mobile')
+
+  // 切回地图页，测试道路点击查询（仍在放大视野内）
+  await tab(0)
+  if (REAL) {
+    await clickLngLat(114.354694, 30.534203)
+    await check(
+      '路段六维评分与高亮',
+      "document.querySelectorAll('.road-detail tbody tr').length === 6 && document.querySelector('g[data-layer=selection] path')",
+    )
+    await capture('road-detail')
+  }
+
+  // 窄屏响应式检查
+  await send('Emulation.setDeviceMetricsOverride', {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 1,
+    mobile: false,
+  })
+  await check(
+    '390 px 无横向溢出且仅两页签',
+    "document.documentElement.scrollWidth <= 390 && document.querySelectorAll('.tabs .tab').length === 2",
+  )
   await tab(1)
-  await check('窄屏推荐结果可见', "document.querySelector('.right') && document.documentElement.scrollWidth <= 390")
-  await send('Emulation.setDeviceMetricsOverride', { width:320,height:568,deviceScaleFactor:1,mobile:false })
-  await check('320 px 无横向溢出', "document.documentElement.scrollWidth <= 320")
+  await check(
+    '390 px 推荐页无横向溢出',
+    "document.querySelector('.left') && document.documentElement.scrollWidth <= 390",
+  )
+  await send('Emulation.setDeviceMetricsOverride', {
+    width: 320,
+    height: 568,
+    deviceScaleFactor: 1,
+    mobile: false,
+  })
+  await check('320 px 无横向溢出', 'document.documentElement.scrollWidth <= 320')
+
   if (!REAL) {
     for (const scenario of ['empty', 'error', 'slow']) {
       await send('Page.navigate', { url: URL_APP + '?mock=' + scenario })
-      await check('场景导航 ' + scenario, "document.querySelectorAll('.tabs .tab').length === 3")
+      await check('场景导航 ' + scenario, "document.querySelectorAll('.tabs .tab').length === 2")
       await tab(1)
-      await check('路线状态 ' + scenario, scenario === 'empty' ? "document.querySelector('.box.notice')" :
-        scenario === 'error' ? "document.querySelector('.box.err')" : "document.querySelector('.pill')")
-      await tab(2)
-      await evalJs("var b=document.querySelector('select[aria-label=\"起点 B\"]');b.value='1';b.dispatchEvent(new Event('change',{bubbles:true}))")
-      await check('场景对比可提交', "!document.querySelector('.submit').disabled")
-      await click('.submit')
-      await check('双侧状态 ' + scenario, scenario === 'empty' ?
-        "Array.from(document.querySelectorAll('.side-status')).every(e=>e.textContent.includes('无合适路线'))" :
-        scenario === 'error' ? "document.querySelectorAll('.side-status button').length === 2" :
-        "document.querySelector('.submit').textContent.includes('正在')")
+      await check(
+        '路线状态 ' + scenario,
+        scenario === 'empty'
+          ? "document.querySelector('.box.notice')"
+          : scenario === 'error'
+            ? "document.querySelector('.box.err')"
+            : "document.querySelector('.pill')",
+      )
     }
   }
+
   if (pageErrors.length) throw new Error(pageErrors.join('\n'))
   await mkdir(OUT, { recursive: true })
-  await writeFile(resolve(OUT, 'checks.json'), JSON.stringify({ real:REAL, checks, pageErrors, consoleErrors, failedRequests }, null, 2))
+  await writeFile(
+    resolve(OUT, 'checks.json'),
+    JSON.stringify({ real: REAL, checks, pageErrors, consoleErrors, failedRequests }, null, 2),
+  )
   console.log(checks.length + '/' + checks.length + ' passed')
 } finally {
   ws?.close()

@@ -1,8 +1,7 @@
 import { computed, reactive } from 'vue'
 import { apiMessage, fetchLoops } from '../api/client'
-import { VIEW, VIEW_PADDING, fitViewBBox } from '../lib/projection'
+import { VIEW_PADDING, fitViewBBox } from '../lib/projection'
 import type {
-  Extent,
   GeoManifest,
   LayerCollection,
   LoopCollection,
@@ -10,7 +9,7 @@ import type {
   ViewBox,
 } from '../types'
 
-export type TabKey = 'map' | 'loops' | 'compare'
+export type TabKey = 'map' | 'loops'
 export type Mode = 'loop' | 'oneway'
 
 export interface Origin {
@@ -19,17 +18,32 @@ export interface Origin {
   lat: number
 }
 
-/** M1 只放「有对应 mock 响应」的两个起点，M2 接后端再开放任意选点 */
 export const PRESET_ORIGINS: Origin[] = [
   { name: '武汉大学 · 八一路珞珈山', lng: 114.3547, lat: 30.5342 },
   { name: '东湖绿道 · 示例起点', lng: 114.411923, lat: 30.555589 },
+  { name: '街道口 · 珞喻路', lng: 114.349, lat: 30.5256 },
+  { name: '东湖磨山景区', lng: 114.4076, lat: 30.5458 },
+]
+
+/** 默认全市 bbox（与 manifest.view.city 一致，避免 manifest 到达前视野跳动） */
+const DEFAULT_CITY_BBOX: [number, number, number, number] = [
+  113.698077, 29.971928, 115.076651, 31.362866,
 ]
 
 export interface PlannerState {
   tab: TabKey
+  /** 环线模式起点 */
   origin: Origin
-  /** 预设起点 / 地图选点，决定是否显示起点标记 */
   originSource: 'preset' | 'custom'
+  /** 单行线 A（起点）与 B（终点） */
+  onewayA: Origin | null
+  onewayB: Origin | null
+  /** 单行线当前地图点选目标 */
+  pickingPoint: 'A' | 'B'
+  /** 单行线选点错误（显示在 B 卡下方，保留已选点） */
+  onewayError: string
+  /** 接口返回 notice 或 target_ok=false 时的温和提示 */
+  routeNotice: string
   mode: Mode
   targetM: number
   /** 界面开关；提交时换算成后端权重 */
@@ -37,31 +51,40 @@ export interface PlannerState {
   loops: LoopCollection | null
   activeIndex: number
   loading: boolean
-  /** 生成接口的错误 */
+  /** 环线生成接口错误 */
   error: string
   /** 接口正常但 features 为空 */
   emptyMsg: string
   /** 底图加载错误 */
   mapError: string
   mapReady: boolean
-  /** 地图范围：片区（central）/ 全城（city） */
-  extent: Extent
-  /** /geo/manifest.json：图层清单（null = 还没加载到） */
+  /** /geo/manifest.json：图层清单 */
   manifest: GeoManifest | null
   /** 每个图层的开关（初始值来自 manifest.layers[].default） */
   layersEnabled: Record<string, boolean>
-  /** 已加载的图层数据缓存：extent 来回切换不重复 fetch */
+  /** 公厕图层是否仅看无障碍 */
+  accessibleOnly: boolean
+  /** 已加载的静态图层数据缓存 */
   layerData: Record<string, LayerCollection | null>
-  /** 每个图层是否正在加载（面板显示 .layer-loading） */
+  /** 每个图层是否正在加载 */
   layerLoading: Record<string, boolean>
-  /** 图层加载错误（面板显示 .layers-err） */
+  /** 图层加载错误 */
   layerError: string
+  /** 视口细粒度路网加载状态与截断降级提示 */
+  roadsDetailLoading: boolean
+  roadsTruncatedMsg: string
+  roadsDetailed: boolean
 }
 
 export const state = reactive<PlannerState>({
   tab: 'map',
   origin: PRESET_ORIGINS[0],
   originSource: 'preset',
+  onewayA: null,
+  onewayB: null,
+  pickingPoint: 'A',
+  onewayError: '',
+  routeNotice: '',
   mode: 'loop',
   targetM: 5000,
   prefs: { green: true, safe: true, flat: false, facility: true },
@@ -72,12 +95,15 @@ export const state = reactive<PlannerState>({
   emptyMsg: '',
   mapError: '',
   mapReady: false,
-  extent: 'central',
   manifest: null,
   layersEnabled: {},
+  accessibleOnly: false,
   layerData: {},
   layerLoading: {},
   layerError: '',
+  roadsDetailLoading: false,
+  roadsTruncatedMsg: '',
+  roadsDetailed: false,
 })
 
 export const loopCount = computed(() => state.loops?.features.length ?? 0)
@@ -90,7 +116,6 @@ export const activeLoop = computed<LoopFeature | null>(() => {
 
 export const targetOptions = [3000, 5000, 10000] as const
 
-/** 开关 → POST /api/loops 的 prefs（facility 后端没有字段，见 G4） */
 function prefsPayload() {
   return {
     green: state.prefs.green ? 1 : 0,
@@ -103,6 +128,9 @@ let requestId = 0
 let controller: AbortController | null = null
 
 export async function generate(): Promise<void> {
+  if (state.mode === 'oneway' && (!state.onewayA || !state.onewayB)) {
+    return
+  }
   controller?.abort()
   controller = new AbortController()
   const myId = ++requestId
@@ -110,30 +138,57 @@ export async function generate(): Promise<void> {
   state.loading = true
   state.loops = null
   state.error = ''
+  state.onewayError = ''
   state.emptyMsg = ''
+  state.routeNotice = ''
+
   try {
-    const res = await fetchLoops(
-      {
-        lng: state.origin.lng,
-        lat: state.origin.lat,
-        target_m: state.targetM,
-        mode: state.mode,
-        prefs: prefsPayload(),
-        max_candidates: 8,
-      },
-      controller.signal,
-    )
+    const payload =
+      state.mode === 'oneway'
+        ? {
+            lng: state.onewayA!.lng,
+            lat: state.onewayA!.lat,
+            mode: 'oneway' as const,
+            end_lng: state.onewayB!.lng,
+            end_lat: state.onewayB!.lat,
+            prefs: prefsPayload(),
+          }
+        : {
+            lng: state.origin.lng,
+            lat: state.origin.lat,
+            target_m: state.targetM,
+            mode: 'loop' as const,
+            prefs: prefsPayload(),
+            max_candidates: 8,
+          }
+
+    const res = await fetchLoops(payload, controller.signal)
     if (myId !== requestId) return
     state.loops = res
     state.activeIndex = 0
-    const msg = (res as LoopCollection & { message?: string }).message
+
+    const msg = res.message
     if (!res.features || res.features.length === 0) {
-      state.emptyMsg = msg || '没有找到符合条件的路线，试试调整目标距离或偏好。'
+      state.emptyMsg =
+        msg ||
+        (state.mode === 'oneway'
+          ? '起点与终点之间没有找到可达的慢跑路径，请重新选点。'
+          : '没有找到符合条件的路线，试试调整目标距离或偏好。')
+    } else if (
+      state.mode === 'oneway' &&
+      (res.notice || res.features.some((f) => f.properties.target_ok === false))
+    ) {
+      state.routeNotice = '以终点为准，实际距离与目标距离存在偏差'
     }
   } catch (e) {
     if (myId !== requestId) return
     if ((e as Error).name === 'AbortError') return
-    state.error = apiMessage(e)
+    const message = apiMessage(e)
+    if (state.mode === 'oneway') {
+      state.onewayError = message
+    } else {
+      state.error = message
+    }
   } finally {
     if (myId === requestId) state.loading = false
   }
@@ -142,14 +197,31 @@ export async function generate(): Promise<void> {
 export function setTarget(targetM: number): void {
   if (state.targetM === targetM) return
   state.targetM = targetM
-  void generate()
+  if (state.mode === 'loop') void generate()
 }
 
 export function setMode(mode: Mode): void {
   if (state.mode === mode) return
+  controller?.abort()
+  requestId++
   state.mode = mode
+  state.loading = false
+  state.loops = null
   state.error = ''
-  void generate()
+  state.onewayError = ''
+  state.emptyMsg = ''
+  state.routeNotice = ''
+  if (mode === 'oneway') {
+    state.onewayA = null
+    state.onewayB = null
+    state.pickingPoint = 'A'
+  } else {
+    void generate()
+  }
+}
+
+export function setPickingPoint(target: 'A' | 'B'): void {
+  state.pickingPoint = target
 }
 
 export function setOrigin(origin: Origin, source: PlannerState['originSource'] = 'preset'): void {
@@ -158,8 +230,36 @@ export function setOrigin(origin: Origin, source: PlannerState['originSource'] =
   void generate()
 }
 
+/** 地图点击或顶部搜索选点：环线模式设起点；单行线模式依次设 A / B */
+export function pickOriginOrDest(
+  point: Origin,
+  source: 'preset' | 'custom' = 'custom',
+): void {
+  if (state.mode === 'loop') {
+    setOrigin(point, source)
+    return
+  }
+  state.onewayError = ''
+  state.emptyMsg = ''
+  if (state.pickingPoint === 'A') {
+    state.onewayA = {
+      ...point,
+      name: source === 'preset' ? point.name : '地图选点 A',
+    }
+    state.pickingPoint = 'B'
+    if (state.onewayB) void generate()
+  } else {
+    state.onewayB = {
+      ...point,
+      name: source === 'preset' ? point.name : '地图选点 B',
+    }
+    // 保持 B 为当前重选目标：想重选 B 直接再点地图即可
+    state.pickingPoint = 'B'
+    if (state.onewayA) void generate()
+  }
+}
+
 export function togglePref(key: keyof PlannerState['prefs']): void {
-  // 绿荫/安全/坡度至少保留一个：全关时后端偏好权重和为 0，综合分会退化成 0
   const payloadKeys = ['green', 'safe', 'flat'] as const
   if (state.prefs[key] && (payloadKeys as readonly string[]).includes(key)) {
     const enabled = payloadKeys.filter((k) => state.prefs[k])
@@ -174,7 +274,6 @@ export function selectLoop(index: number): void {
   state.activeIndex = index
 }
 
-/** 候选环线：首尾循环，键盘 ←/→ 与右栏按钮共用 */
 export function prevLoop(): void {
   const n = loopCount.value
   if (n === 0) return
@@ -189,64 +288,43 @@ export function nextLoop(): void {
 
 export function clearError(): void {
   state.error = ''
+  state.onewayError = ''
   state.emptyMsg = ''
 }
 
 /* ------------------------------------------------------------------
- * 空间图层 / 地图范围（由 public/geo/manifest.json 驱动）
+ * 统一单图视图 + 空间图层（由 public/geo/manifest.json 驱动）
  * ------------------------------------------------------------------ */
 
-/** 当前范围对应的投影视图：片区沿用 reference 的固定 VIEW，全城按数据 bbox 等比适配 */
+/** 全市统一底图投影视图（zoom=1 时一屏看完整座武汉） */
 export const currentView = computed<ViewBox>(() => {
-  const manifest = state.manifest
-  if (state.extent === 'city' && manifest) {
-    const { lon0, lat0, lon1, lat1 } = manifest.view.city
-    return fitViewBBox([lon0, lat0, lon1, lat1], VIEW_PADDING)
+  const city = state.manifest?.view.city
+  if (city) {
+    return fitViewBBox([city.lon0, city.lat0, city.lon1, city.lat1], VIEW_PADDING)
   }
-  return VIEW
+  return fitViewBBox(DEFAULT_CITY_BBOX, VIEW_PADDING)
 })
 
-/** 当前范围下实际渲染的「适宜性路网」变体 */
-export const activeRoadLayerId = computed<string>(() => {
-  if (state.extent === 'central') return 'roads_central'
-  return state.layersEnabled['roads_all'] ? 'roads_all' : 'roads_arterial'
-})
-
-/** 图层面板「适宜性路网」行的开关状态（不含单独的“全量路网”行） */
+/** 适宜性路网是否开启 */
 export const roadSuitabilityEnabled = computed<boolean>(() => {
-  return state.extent === 'central'
-    ? !!state.layersEnabled['roads_central']
-    : !!state.layersEnabled['roads_arterial']
+  return !!state.layersEnabled['roads_arterial']
 })
 
-/**
- * 当前应该显示的图层 id 列表（MapStage 懒加载 / 适配器渲染的依据）。
- * - 开关关闭的不要；
- * - 与当前 extent 不适配的不要（central 专属 / city 专属）；
- * - 路网三变体只保留 activeRoadLayerId 一个，避免 roads 组被多个数据覆盖。
- */
+/** 当前应该显示的图层 id 列表 */
 export const activeLayerIds = computed<string[]>(() => {
   const manifest = state.manifest
   if (!manifest) return []
   const out: string[] = []
   for (const def of manifest.layers) {
-    if (def.variant === 'roads') {
-      if (def.id === activeRoadLayerId.value && state.layersEnabled[def.id]) out.push(def.id)
-      continue
-    }
-    if (!state.layersEnabled[def.id]) continue
-    if (def.extent !== 'both' && def.extent !== state.extent) continue
-    out.push(def.id)
+    if (state.layersEnabled[def.id]) out.push(def.id)
   }
   return out
 })
 
-/** 图层文件 URL（manifest 只给文件名） */
 export function layerFileUrl(file: string): string {
   return `/geo/${file}`
 }
 
-/** manifest 到达后初始化图层开关（default=true 首屏加载，其余懒加载） */
 export function setManifest(manifest: GeoManifest): void {
   state.manifest = manifest
   const enabled: Record<string, boolean> = {}
@@ -258,39 +336,11 @@ export function setManifest(manifest: GeoManifest): void {
   state.mapError = ''
 }
 
-/** 切换片区 / 全城；路网变体开关状态跟随当前“适宜性路网”行 */
-export function setExtent(extent: Extent): void {
-  if (state.extent === extent) return
-  if (extent === 'city') {
-    state.layersEnabled['roads_arterial'] = !!state.layersEnabled['roads_central']
-  } else {
-    state.layersEnabled['roads_central'] = !!state.layersEnabled['roads_arterial']
-    // 全量路网只在全城下有意义，切回片区自动关闭，避免 30 MB 数据常驻
-    state.layersEnabled['roads_all'] = false
-  }
-  state.extent = extent
-  state.layerError = ''
-}
-
-/** 图层面板开关：'roads' 是适宜性路网合成行，'roads_all' 是全量路网 */
 export function toggleLayer(id: string): void {
-  if (id === 'roads') {
-    const target = state.extent === 'central' ? 'roads_central' : 'roads_arterial'
-    state.layersEnabled[target] = !state.layersEnabled[target]
-    state.layerError = ''
-    return
-  }
-  const def = state.manifest?.layers.find((layer) => layer.id === id)
-  if (id === 'roads_all') {
-    const next = !state.layersEnabled['roads_all']
-    state.layersEnabled['roads_all'] = next
-    // 全量路网数据只在全城视野下有完整意义
-    if (next) setExtent('city')
-    state.layerError = ''
-    return
-  }
+  const targetId = id === 'roads' ? 'roads_arterial' : id
+  const def = state.manifest?.layers.find((layer) => layer.id === targetId)
   if (!def) return
-  state.layersEnabled[id] = !state.layersEnabled[id]
+  state.layersEnabled[targetId] = !state.layersEnabled[targetId]
   state.layerError = ''
 }
 

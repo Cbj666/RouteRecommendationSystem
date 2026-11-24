@@ -14,7 +14,7 @@ import { clearError, generate, state } from '../stores/planner'
     </div>
 
     <div v-else-if="state.tab === 'loops' && state.emptyMsg" class="box notice glass-solid">
-      <b>没有可用的环线</b>
+      <b>{{ state.mode === 'oneway' ? '没有可用的单行线' : '没有可用的环线' }}</b>
       <p>{{ state.emptyMsg }}</p>
       <div class="acts">
         <button class="act" @click="generate">再试一次</button>
@@ -22,7 +22,7 @@ import { clearError, generate, state } from '../stores/planner'
       </div>
     </div>
 
-    <div v-else-if="state.tab === 'loops' && state.error" class="box err glass-solid">
+    <div v-else-if="state.tab === 'loops' && state.mode === 'loop' && state.error" class="box err glass-solid">
       <p>{{ state.error }}</p>
       <div class="acts">
         <button class="act" @click="generate">重试</button>
@@ -31,7 +31,7 @@ import { clearError, generate, state } from '../stores/planner'
     </div>
 
     <div v-else-if="state.tab === 'loops' && state.loading" class="pill">
-      <span class="spin" aria-hidden="true"></span>正在生成环线…
+      <span class="spin" aria-hidden="true"></span>正在生成路线…
     </div>
   </div>
 </template>

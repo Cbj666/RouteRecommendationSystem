@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { PRESET_ORIGINS, setOrigin, state, type Origin } from '../stores/planner'
+import { PRESET_ORIGINS, pickOriginOrDest, state, type Origin } from '../stores/planner'
 
 const tabs = [
   { key: 'map', label: '适宜性地图' },
   { key: 'loops', label: '环线推荐' },
-  { key: 'compare', label: '起点对比' },
 ] as const
 
 const query = ref('')
@@ -32,7 +31,7 @@ function hide(event: FocusEvent): void {
 }
 
 function choose(o: Origin): void {
-  setOrigin(o, 'preset')
+  pickOriginOrDest(o, 'preset')
   query.value = ''
   open.value = false
   ;(document.activeElement as HTMLElement | null)?.blur()

@@ -15,8 +15,30 @@ const length = computed(() => {
     <h5>慢跑适宜性</h5>
     <div v-for="(label, index) in GRADE_LABELS" :key="label" class="grade-row">
       <i :style="{ background: GRADE_COLORS[index] }"></i>{{ label }}
-      {{ index === 0 ? '≤ ' + GRADE_BINS[0] : index === 4 ? '> ' + GRADE_BINS[3] : '(' + GRADE_BINS[index - 1] + ', ' + GRADE_BINS[index] + ']' }}
+      {{
+        index === 0
+          ? '≤ ' + GRADE_BINS[0]
+          : index === 4
+            ? '> ' + GRADE_BINS[3]
+            : '(' + GRADE_BINS[index - 1] + ', ' + GRADE_BINS[index] + ']'
+      }}
     </div>
+
+    <div class="poi-legend">
+      <div class="poi-row">
+        <span class="sym sym-facility" aria-hidden="true"></span>运动场馆
+      </div>
+      <div class="poi-row">
+        <span class="sym sym-toilet" aria-hidden="true"></span>公共厕所
+      </div>
+      <div class="poi-row">
+        <span class="sym sym-toilet sym-accessible" aria-hidden="true"></span>无障碍公厕
+      </div>
+      <div class="poi-row">
+        <span class="sym sym-cluster" aria-hidden="true">8</span>整城聚合点
+      </div>
+    </div>
+
     <div v-if="state.tab === 'loops'" class="lk">
       <span class="line" aria-hidden="true"></span>推荐路线 {{ length }}
     </div>
@@ -24,8 +46,18 @@ const length = computed(() => {
 </template>
 
 <style scoped>
-.grade-row { display: flex; gap: 8px; align-items: center; font-size: 12px; line-height: 1.6; }
-.grade-row i { display: inline-block; width: 14px; height: 4px; }
+.grade-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.grade-row i {
+  display: inline-block;
+  width: 14px;
+  height: 4px;
+}
 .legend {
   position: absolute;
   right: 380px;
@@ -40,30 +72,78 @@ h5 {
   font-size: 12px;
   color: var(--ink);
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
-.ramp {
-  width: 118px;
-  height: 8px;
-  background: linear-gradient(90deg, #d94f4f, #e8a33d, #8fbf6a, #2e7a5d, #15503c);
-}
-
-.lscale {
+.poi-legend {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
   display: flex;
-  justify-content: space-between;
-  width: 118px;
-  font-size: 10.5px;
-  line-height: 1;
-  color: var(--muted);
-  margin-top: 4px;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.poi-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.sym {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.sym-facility {
+  width: 10px;
+  height: 10px;
+  margin-inline: 2px;
+  background: #c2410c;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #fff;
+}
+
+.sym-toilet {
+  width: 10px;
+  height: 10px;
+  margin-inline: 2px;
+  background: #1d4ed8;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px #fff, 0 0 0 2px rgba(29, 78, 216, 0.28);
+  position: relative;
+}
+
+.sym-accessible::after {
+  content: '';
+  width: 3.5px;
+  height: 3.5px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.sym-cluster {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #374151;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px #fff;
 }
 
 .lk {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
   white-space: nowrap;
 }
 

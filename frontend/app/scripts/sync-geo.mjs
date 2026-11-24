@@ -20,7 +20,7 @@
  *
  * 触发：npm run sync:geo（predev / prebuild 自动执行）。
  */
-import { copyFile, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -37,20 +37,20 @@ const SRC = {
   waterGreen: 'data/output/running/v1/web/water_green.geojson',
   segmentsCity: 'data/output/running/v1/web/segments_city.geojson',
   segmentsArterial: 'data/output/running/v1/web/segments_arterial.geojson',
-  segmentsAll: 'data/output/running/v1/web/segments_all.geojson',
   boundary: 'data/processed/v1/wuhan_boundary.geojson',
   routesMetro: 'data/processed/v1/routes_metro.geojson',
   routesBus: 'data/processed/v1/routes_bus.geojson',
   stopsMetro: 'data/processed/v1/stops_metro.csv',
   stopsBus: 'data/processed/v1/stops_bus.csv',
   facilities: 'data/processed/running/v1/amap_sport_poi.csv',
+  toilets: 'data/processed/running/v1/amap_toilet_poi.csv',
   hotspots: 'data/output/running/v1/demo/hotspots_kept.csv',
   airStations: 'data/processed/running/v1/air_quality_stations.csv',
   loops: 'data/output/running/v1/loops.geojson',
 }
 
 // ---------------------------------------------------------------------------
-// 渲染层定义（顺序即前端图层叠放/清单顺序，契约固定不可改）
+// 渲染层定义（顺序即前端图层叠放/清单顺序）
 // ---------------------------------------------------------------------------
 const LAYERS = [
   {
@@ -87,49 +87,23 @@ const LAYERS = [
     geometry: 'polygon',
     source: SRC.boundary,
     style: 'boundary',
-    default: false,
+    default: true,
     extent: 'both',
     variant: null,
     variantLevel: null,
   },
   {
-    id: 'roads_central',
-    label: '核心路网',
-    group: '路网',
-    file: 'segments_city.geojson',
-    geometry: 'line',
-    source: SRC.segmentsCity,
-    style: 'score',
-    default: true,
-    extent: 'central',
-    variant: 'roads',
-    variantLevel: 'central',
-  },
-  {
     id: 'roads_arterial',
-    label: '干道路网',
+    label: '适宜性路网',
     group: '路网',
     file: 'segments_arterial.geojson',
     geometry: 'line',
     source: SRC.segmentsArterial,
     style: 'score',
-    default: false,
-    extent: 'city',
+    default: true,
+    extent: 'both',
     variant: 'roads',
     variantLevel: 'city',
-  },
-  {
-    id: 'roads_all',
-    label: '全量路网',
-    group: '路网',
-    file: 'segments_all.geojson',
-    geometry: 'line',
-    source: SRC.segmentsAll,
-    style: 'score',
-    default: false,
-    extent: 'city',
-    variant: 'roads',
-    variantLevel: 'all',
   },
   {
     id: 'metro_routes',
@@ -197,6 +171,19 @@ const LAYERS = [
     variantLevel: null,
   },
   {
+    id: 'toilets',
+    label: '公共厕所',
+    group: '设施',
+    file: 'toilets.geojson',
+    geometry: 'point',
+    source: SRC.toilets,
+    style: 'toilet',
+    default: true,
+    extent: 'both',
+    variant: null,
+    variantLevel: null,
+  },
+  {
     id: 'hotspots',
     label: '推荐热点',
     group: '分析',
@@ -224,17 +211,16 @@ const LAYERS = [
   },
 ]
 
-// 水路边界等整文件复制的图层（复制保留原坐标精度）
+// 水路边界等整文件复制的图层（复制保留原坐标精度；不再复制 30 MB 的 segments_all.geojson）
 const COPY_FILES = [
   { file: 'boundary.geojson', source: SRC.boundary },
   { file: 'segments_city.geojson', source: SRC.segmentsCity },
   { file: 'segments_arterial.geojson', source: SRC.segmentsArterial },
-  { file: 'segments_all.geojson', source: SRC.segmentsAll },
   { file: 'metro_routes.geojson', source: SRC.routesMetro },
   { file: 'bus_routes.geojson', source: SRC.routesBus },
 ]
 
-// CSV → 点图层（字段取值见任务契约）
+// CSV → 点图层
 const POINT_LAYERS = [
   {
     file: 'metro_stops.geojson',
@@ -262,10 +248,26 @@ const POINT_LAYERS = [
     lonColumn: 'lng',
     latColumn: 'lat',
     properties: (row) => ({
-      name: row.name,
-      type: row.type,
-      adname: row.adname,
+      name: row.name || '',
+      type: row.type || '',
+      address: row.address || '',
+      adname: row.adname || '',
       in_boundary: row.in_boundary === 'True' || row.in_boundary === 'true' || row.in_boundary === '1',
+    }),
+  },
+  {
+    file: 'toilets.geojson',
+    source: SRC.toilets,
+    lonColumn: 'lng',
+    latColumn: 'lat',
+    filter: (row) => /公共厕所|洗手间/.test(row.type || ''),
+    properties: (row) => ({
+      name: row.name || '',
+      type: row.type || '',
+      address: row.address || '',
+      adname: row.adname || '',
+      in_boundary: row.in_boundary === 'True' || row.in_boundary === 'true' || row.in_boundary === '1',
+      accessible: /无障碍|残障/.test(`${row.type || ''}|${row.name || ''}`),
     }),
   },
   {
@@ -554,14 +556,21 @@ async function main() {
     }
   }
 
+  const scriptStat = await stat(fileURLToPath(import.meta.url))
+  // 清理旧版 30 MB 全量路网文件
+  await rm(join(outDir, 'segments_all.geojson'), { force: true })
+
   // 3. CSV → 点图层
   for (const config of POINT_LAYERS) {
     const dest = join(outDir, config.file)
-    if (!(await needsRewrite(dest, sourceStats.get(config.source)))) {
+    const srcStat = sourceStats.get(config.source)
+    const newestMtime = Math.max(srcStat.mtimeMs, scriptStat.mtimeMs)
+    if (!(await needsRewrite(dest, { mtimeMs: newestMtime }))) {
       console.log(`[sync-geo] 跳过 ${config.file}（已是最新）`)
       continue
     }
-    const rows = await readCsvObjects(config.source)
+    const rawRows = await readCsvObjects(config.source)
+    const rows = config.filter ? rawRows.filter(config.filter) : rawRows
     const features = rows.map((row, index) => {
       const lon = toFiniteNumber(row[config.lonColumn], `${config.source}[${index}].${config.lonColumn}`)
       const lat = toFiniteNumber(row[config.latColumn], `${config.source}[${index}].${config.latColumn}`)
@@ -588,33 +597,18 @@ async function main() {
   }
   const metricOf = (id) => metrics.get(id)
 
-  // 5. 盘点 16 个空间数据文件（8 GeoJSON + 3 GeoPackage 文件 + 5 CSV）
+  // 5. 盘点空间数据文件
   const loops = await readJson(fromRepo(SRC.loops))
   const loopsFeatures = Array.isArray(loops.features) ? loops.features : []
   const loopsBbox = bboxOfFeatures(loopsFeatures)
 
   const inventory = [
-    // --- 8 个 GeoJSON 数据源 ---
-    {
-      path: SRC.segmentsAll,
-      format: 'GeoJSON LineString',
-      count: metricOf('roads_all').count,
-      bbox: metricOf('roads_all').bbox,
-      rendered_as: ['roads_all'],
-    },
     {
       path: SRC.segmentsArterial,
       format: 'GeoJSON LineString',
       count: metricOf('roads_arterial').count,
       bbox: metricOf('roads_arterial').bbox,
       rendered_as: ['roads_arterial'],
-    },
-    {
-      path: SRC.segmentsCity,
-      format: 'GeoJSON LineString',
-      count: metricOf('roads_central').count,
-      bbox: metricOf('roads_central').bbox,
-      rendered_as: ['roads_central'],
     },
     {
       path: SRC.waterGreen,
@@ -645,14 +639,12 @@ async function main() {
       rendered_as: ['boundary'],
     },
     {
-      // demo 输出：检测到但不渲染
       path: SRC.loops,
       format: 'GeoJSON LineString',
       count: loopsFeatures.length,
       bbox: loopsBbox,
       rendered_as: [],
     },
-    // --- 3 个 GeoPackage 文件（不渲染，仅盘点） ---
     {
       path: 'data/processed/running/v1/segments.gpkg#segments',
       format: 'GeoPackage',
@@ -674,13 +666,19 @@ async function main() {
       bbox: GPKG_BBOX_POI.slice(),
       rendered_as: [],
     },
-    // --- 5 个 CSV 数据源 ---
     {
       path: SRC.facilities,
       format: 'CSV',
       count: metricOf('facilities').count,
       bbox: metricOf('facilities').bbox,
       rendered_as: ['facilities'],
+    },
+    {
+      path: SRC.toilets,
+      format: 'CSV',
+      count: metricOf('toilets').count,
+      bbox: metricOf('toilets').bbox,
+      rendered_as: ['toilets'],
     },
     {
       path: SRC.stopsBus,
@@ -712,7 +710,7 @@ async function main() {
     },
   ]
 
-  // 6. manifest.json（字段顺序/取值固定，T2/T3 依赖）
+  // 6. manifest.json
   const layers = LAYERS.map((layer) => {
     const layerMetric = metricOf(layer.id)
     return {
@@ -738,7 +736,7 @@ async function main() {
     crs: 'WGS84',
     view: VIEW,
     summary: {
-      spatial_files: 16,
+      spatial_files: inventory.length,
       layers: layers.length,
       features: layers.reduce((sum, layer) => sum + layer.count, 0),
     },
