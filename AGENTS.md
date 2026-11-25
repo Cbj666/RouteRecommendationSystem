@@ -286,4 +286,4 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 
 拖动与缩放（2026-11-25 改）：单指拖动走 `svgAdapter.beginPan()/panBy()/endPan()`——把 SVG 放大到 160% 并同步放宽 viewBox，拖动期只改 CSS `transform`（合成器搬运、不重光栅化），松手再落成真实 viewBox；`MapStage.clampPan()` 把位移夹在地图范围内。矢量缩放仍改 viewBox。实测 DPR=1 拖动主线程耗时 0.252 → 0.052 s、LayoutCount 60 → 2。
 
-热点页（2026-11-25 改）：不再画设施点位（MapStage 的 pois prop 置 false，图层与请求都跳过 facilities/toilets）；「区域筛选」支持在地图上拖出矩形或圆形，只统计覆盖到的网格并按长度加权重算均分与排名（纯前端、基于 /api/hotspot 已载入的格子），区域外格子用遮罩压暗，Esc 或「清除」恢复全城。
+热点页（2026-11-25 改）：不再画设施点位（MapStage 的 pois prop 置 false，图层与请求都跳过 facilities/toilets）；「区域筛选」支持在地图上拖出矩形或圆形，只统计覆盖到的网格并按长度加权重算均分与排名（纯前端、基于 /api/hotspot 已载入的格子），区域外格子用遮罩压暗，Esc 或「清除」恢复全城。颜色改为「连续色带 + 一次高斯模糊 + 单独一层方框边线」：分数按五档分界映射到色带后量化 28 级（`HotspotOverlay.vue` 的 `scoreT/scoreColor`），模糊 `stdDeviation=3.2`，格子边框另画一条 `gridPath`（0.14 透明度），既保留网格又能平滑过渡。
