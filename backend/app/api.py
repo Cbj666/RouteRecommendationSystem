@@ -904,6 +904,28 @@ def place_search(
     )
 
 
+@app.get(
+    "/api/hotspot",
+    summary="全城 1 km 热点网格（离线分析产物，按路段长度加权）",
+)
+def hotspot() -> JSONResponse:
+    """返回热点页所需的整份网格数据。
+
+    数据由 ``backend/scripts/build_hotspot_grid.py`` 离线算好后写入
+    ``data/output/running/v1/hotspot/grid_1000m.json``；本接口只读取并缓存，
+    不在请求里重算。前端因此不需要直接访问 ``data/`` 目录。
+
+    响应字段：``note``（口径说明）、``view``（全城 bbox）、``summary``
+    （格数/热点数/覆盖长度/均分）与 ``cells``（每格 1 km，含综合分、等级、
+    六维子分、样本路段数与长度、是否热点）。
+    """
+    try:
+        payload = datasets.hotspot()
+    except datasets.DatasetUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return JSONResponse(content=payload, headers={"Cache-Control": "public, max-age=300"})
+
+
 @app.get("/api/layers", summary="数据目录（字段、数量、来源、更新时间）")
 def layers() -> dict:
     """前端可用它判断图层是否就绪、字段含义，以及数据文件更新时间。"""
@@ -1037,6 +1059,43 @@ def layers() -> dict:
         catalog["toilets"] = {
             "available": False,
             "endpoint": "/api/toilets",
+            "error": str(exc),
+        }
+
+    try:
+        payload = datasets.hotspot()
+        summary = payload.get("summary", {})
+        catalog["hotspot"] = {
+            "available": True,
+            "endpoint": "/api/hotspot",
+            "params": [],
+            "cells": summary.get("cells"),
+            "hotspots": summary.get("hotspots"),
+            "total_length_km": summary.get("totalLengthKm"),
+            "bbox": payload.get("view"),
+            "geometry_type": "grid_1000m",
+            "fields": {
+                "id": "格子 id（G{行}_{列}）",
+                "name": "最近地标名（>1.2 km 补方位，仅展示）",
+                "cluster": "所属地标簇",
+                "score": "格内综合分 0–100（按路段长度加权）",
+                "grade": "v2 分档：差/一般/较好/好/很好",
+                "rank": "榜单名次（样本 ≥1 km 才参与排序）",
+                "nSeg": "样本路段数",
+                "lenM": "样本路段总长（m）",
+                "isHotspot": "热点格：综合分 ≥65 且样本 ≥1000 m",
+                "subs": "六维子分 s_safety / s_green / s_slope / s_cross / s_fac / s_air",
+            },
+            "notes": (
+                "离线脚本 build_hotspot_grid.py 生成；"
+                "热点判定见 summary.hotspotRule。"
+            ),
+            **_file_meta(datasets.HOTSPOT_JSON),
+        }
+    except datasets.DatasetUnavailable as exc:
+        catalog["hotspot"] = {
+            "available": False,
+            "endpoint": "/api/hotspot",
             "error": str(exc),
         }
 

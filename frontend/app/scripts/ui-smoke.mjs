@@ -2,12 +2,13 @@
  * 前端交付冒烟，使用 Edge headless 与 CDP。
  * 覆盖 F1（统一单图 + 视口路段加载 + 路线视野联动）、
  * F2（单行线两步点选 A/B + 绕行系数 + 选点报错）、
- * F3（三页签：适宜性地图 / 环线推荐 / 热点地图）、
+ * F3（两页签：环线推荐 / 热点地图）、
  * F4（运动场馆/公厕分符号、独立开关、整城聚合、无障碍筛选与图例）、
- * F5（地点搜索：环线模式设为起点、单行线模式依次落 A/B）。
+ * F5（地点搜索：环线模式设为起点、单行线模式依次落 A/B）、
+ * F6（全城热点网格：离线数据经 /api/hotspot 提供，榜单与格子联动）。
  *
- * UI_REAL=1 连接真实后端（地点搜索走高德）；默认 mock 同样覆盖环线、单行线、
- * 热点网格与 4 条内置地点。UI_URL 指向开发服务器；UI_SCREENSHOTS=1 可选截图。
+ * UI_REAL=1 连接真实后端（热点网格 5,480 格、地点搜索走高德）；默认 mock 用内置
+ * 500 格网格与 4 条地点。UI_URL 指向开发服务器；UI_SCREENSHOTS=1 可选截图。
  * 记录写入 data/output/ui/<UI_OUT>，默认 frontend-delivery。
  */
 import { spawn } from 'node:child_process'
@@ -207,47 +208,19 @@ try {
     await evalJs(`document.querySelectorAll('.mode-segs .seg')[${index}].click()`)
   }
 
-  // F3: 顶部三页签（起点对比页已在 main 移除）
+  // F3: 顶部两页签（适宜性地图页已从前端移除，只保留环线推荐与热点地图）
   await check(
-    'F3 三页签且无起点对比',
-    "document.querySelectorAll('.tabs .tab').length === 3 && !document.body.innerText.includes('起点对比')",
+    'F3 两页签（环线推荐 / 热点地图）',
+    "document.querySelectorAll('.tabs .tab').length === 2 && document.body.innerText.includes('环线推荐') && document.body.innerText.includes('热点地图') && !document.body.innerText.includes('适宜性地图')",
   )
 
-  // F1: 单图就绪，无片区/全城开关，无 30 MB 全量路网开关
+  // F1: 默认进入环线页并自动生成路线；单图、图层面板就绪，无片区/全城开关
   await check(
-    'F1 统一单图与图层就绪',
-    "document.querySelector('g[data-layer=roads] path') && document.querySelector('.layers') && document.querySelector('.map-details') && !document.querySelector('.extent') && !document.querySelector('[data-layer=roads_all]')",
-  )
-  await check('地图视图隐藏路线条件', "!document.querySelector('.left')")
-
-  // F4: 整城低缩放聚合显示，且场馆与公厕独立开关默认开启
-  await check(
-    'F4 整城设施聚合与独立开关默认开启',
-    "document.querySelector('g[data-layer=poi_clusters] path') && document.querySelector('[data-layer=facilities] .layer-check')?.getAttribute('aria-checked') === 'true' && document.querySelector('[data-layer=toilets] .layer-check')?.getAttribute('aria-checked') === 'true'",
+    'F1 环线自动生成并缩放至路线范围',
+    "document.querySelector('.score b') && document.querySelector('g[data-layer=route] path') && !document.querySelector('.pill') && document.querySelector('g[data-layer=roads] path') && document.querySelector('.layers') && !document.querySelector('.extent') && !document.querySelector('[data-layer=roads_all]') && document.querySelector('.map-host svg').viewBox.baseVal.width < 400",
   )
 
-  // F5: 热点地图页签（示例网格，来自 PR #6）
-  await tab(2)
-  await check(
-    '热点页签与网格',
-    "document.querySelector('.hotspot-rank h3')?.textContent.includes('武汉跑步热点地图') && document.querySelectorAll('.hotspot-overlay path').length > 50 && document.querySelector('.hotspot-detail')",
-  )
-  await capture('hotspot-desktop')
-  await tab(0)
-  await click('[data-layer="water"] .layer-check')
-  await check('关闭水体', "!document.querySelector('g[data-layer=water]')")
-  await click('[data-layer="water"] .layer-check')
-  await check('恢复水体', "document.querySelector('g[data-layer=water] path')")
-  await capture('city-overview')
-
-  // 切到环线推荐页
-  await tab(1)
-  await check(
-    'F1+环线自动生成并缩放至路线范围',
-    "document.querySelector('.score b') && document.querySelector('g[data-layer=route] path') && !document.querySelector('.pill') && document.querySelector('.map-host svg').viewBox.baseVal.width < 400",
-  )
-
-  // 放大后进入 <= 30km 视野：展开运动场馆圆角方块 & 公厕圆点，且加载视口细粒度路网
+  // 放大到 5 km 视野：展开运动场馆圆角方块 & 公厕圆点，且加载视口细粒度路网
   await check(
     'F4 放大后场馆与公厕分开绘制',
     "document.querySelector('g[data-layer=facilities] path') && document.querySelector('g[data-layer=toilets] path') && !document.querySelector('g[data-layer=poi_clusters]')",
@@ -262,6 +235,20 @@ try {
   await check('切换候选环线', "document.querySelector('.cidx').textContent.startsWith('2/')")
   await evalJs("document.body.dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowLeft',bubbles:true}))")
   await check('键盘候选切换', "document.querySelector('.cidx').textContent.startsWith('1/')")
+
+  // 复位到全城视野：验证整城设施聚合与图层开关
+  await evalJs(
+    "[...document.querySelectorAll('.map-controls button')].find((b) => b.textContent.includes('复位')).click()",
+  )
+  await check(
+    'F4 整城设施聚合与独立开关默认开启',
+    "document.querySelector('g[data-layer=poi_clusters] path') && document.querySelector('[data-layer=facilities] .layer-check')?.getAttribute('aria-checked') === 'true' && document.querySelector('[data-layer=toilets] .layer-check')?.getAttribute('aria-checked') === 'true'",
+  )
+  await click('[data-layer="water"] .layer-check')
+  await check('关闭水体', "!document.querySelector('g[data-layer=water]')")
+  await click('[data-layer="water"] .layer-check')
+  await check('恢复水体', "document.querySelector('g[data-layer=water] path')")
+  await capture('city-overview')
 
   // F2: 单行线两步点选 A/B
   await evalJs("document.querySelectorAll('.mode-segs .seg')[1].click()")
@@ -297,19 +284,7 @@ try {
       "document.querySelector('g[data-layer=route] path') && !document.querySelector('.oneway-err')",
     )
   }
-  // 切回地图页，测试道路点击查询（仍在放大视野内）
-  await tab(0)
-  if (REAL) {
-    await clickLngLat(114.354694, 30.534203)
-    await check(
-      '路段六维评分与高亮',
-      "document.querySelectorAll('.road-detail tbody tr').length === 6 && document.querySelector('g[data-layer=selection] path')",
-    )
-    await capture('road-detail')
-  }
-
   // 地点搜索：REAL 走 /api/places/search（需后端与高德 Key）；mock 只有 4 条内置地点
-  await tab(1)
   // 主流程是「搜索地点当环线起点」；前面的单行线用例把模式切走了，先切回环线
   await setModeSeg(0)
   await check(
@@ -367,6 +342,23 @@ try {
     `document.querySelector('.point-card[data-point=B] b').textContent.startsWith(${JSON.stringify(onewayKeyword)}) && Boolean(document.querySelector('g[data-layer=route] path'))`,
   )
 
+  // F6: 热点地图页签 —— 全城 1 km 网格（/api/hotspot 离线产物；mock 为 500 格示例）
+  await tab(1)
+  await check(
+    'F6 热点页签与全城网格',
+    `document.querySelector('.hotspot-rank h3')?.textContent.includes('武汉跑步热点地图') && Number(document.querySelector('.hotspot-overlay').getAttribute('data-cells')) >= ${REAL ? 2000 : 400} && document.querySelector('.hotspot-detail') && document.querySelector('.hotspot-rank header p')?.textContent.includes('1 km')`,
+  )
+  await check(
+    'F6 榜单与六维详情联动',
+    "document.querySelectorAll('.hotspot-rank .rank-list li').length >= 10 && Boolean(document.querySelector('.hotspot-detail .num'))",
+  )
+  await capture('hotspot-desktop')
+  await click('.hotspot-rank .rank-list li:nth-child(2)')
+  await check(
+    'F6 点击榜单切换选中格',
+    "document.querySelector('.hotspot-rank .rank-list li:nth-child(2)').classList.contains('on')",
+  )
+
   // 窄屏响应式检查
   await send('Emulation.setDeviceMetricsOverride', {
     width: 390,
@@ -375,20 +367,19 @@ try {
     mobile: false,
   })
   await check(
-    '390 px 无横向溢出且三页签',
-    "document.documentElement.scrollWidth <= 390 && document.querySelectorAll('.tabs .tab').length === 3",
+    '390 px 无横向溢出且两页签',
+    "document.documentElement.scrollWidth <= 390 && document.querySelectorAll('.tabs .tab').length === 2",
   )
-  await tab(1)
-  await check(
-    '390 px 推荐页无横向溢出',
-    "document.querySelector('.left') && document.documentElement.scrollWidth <= 390",
-  )
-  await tab(2)
   await check(
     '390 px 热点页可读',
     "document.querySelector('.hotspot-rank') && document.querySelector('.hotspot-detail') && document.documentElement.scrollWidth <= 390",
   )
   await capture('hotspot-mobile')
+  await tab(0)
+  await check(
+    '390 px 推荐页无横向溢出',
+    "document.querySelector('.left') && document.documentElement.scrollWidth <= 390",
+  )
   await send('Emulation.setDeviceMetricsOverride', {
     width: 320,
     height: 568,
@@ -400,8 +391,7 @@ try {
   if (!REAL) {
     for (const scenario of ['empty', 'error', 'slow']) {
       await send('Page.navigate', { url: URL_APP + '?mock=' + scenario })
-      await check('场景导航 ' + scenario, "document.querySelectorAll('.tabs .tab').length === 3")
-      await tab(1)
+      await check('场景导航 ' + scenario, "document.querySelectorAll('.tabs .tab').length === 2")
       await check(
         '路线状态 ' + scenario,
         scenario === 'empty'

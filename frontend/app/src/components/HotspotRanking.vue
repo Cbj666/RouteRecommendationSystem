@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { HOTSPOT_SOURCE_NOTE } from '../mocks/hotspot'
 import {
   filteredHotspots,
+  hotspotCellCount,
   hotspotCount,
+  hotspotNote,
   hotspotState,
+  hotspotSummary,
   selectHotspot,
   setHotspotFilter,
 } from '../stores/hotspot'
@@ -13,8 +15,15 @@ import {
   <aside class="hotspot-rank glass" aria-label="热点排行榜">
     <header>
       <h3>武汉跑步热点地图</h3>
-      <p>{{ HOTSPOT_SOURCE_NOTE }}</p>
+      <p>{{ hotspotNote }}</p>
+      <p v-if="hotspotSummary" class="meta">
+        {{ hotspotCellCount.toLocaleString() }} 格 · {{ hotspotCount.toLocaleString() }} 个热点 · 均分
+        {{ hotspotSummary.meanScore }} · 覆盖 {{ hotspotSummary.totalLengthKm.toLocaleString() }} km
+      </p>
     </header>
+
+    <p v-if="hotspotState.loading" class="state">网格载入中…</p>
+    <p v-else-if="hotspotState.error" class="state error">{{ hotspotState.error }}</p>
 
     <div class="filters" role="group" aria-label="热点筛选">
       <button
@@ -40,7 +49,7 @@ import {
         :class="{ on: cell.id === hotspotState.selectedId, hot: cell.isHotspot }"
         @click="selectHotspot(cell.id)"
       >
-        <span class="rank num">{{ cell.rank }}</span>
+        <span class="rank num">{{ cell.rank > 0 ? cell.rank : '—' }}</span>
         <span class="name">
           <b>{{ cell.name }}</b>
           <small>{{ cell.cluster }} · {{ Math.round(cell.lenM) }} m</small>
@@ -81,6 +90,23 @@ header p {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.45;
+}
+
+header p.meta {
+  color: var(--sub);
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+}
+
+.state {
+  flex: none;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.state.error {
+  color: #b43737;
 }
 
 .filters {

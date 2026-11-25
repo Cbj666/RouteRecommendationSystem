@@ -42,17 +42,21 @@ function onKeydown(e: KeyboardEvent): void {
   }
 }
 
+/** 默认进入环线页：首次挂载与从其它页签切回时都自动生成（无路线、未在算、无错误） */
+function autoGenerate(): void {
+  if (state.tab === 'loops' && state.mode === 'loop' && !state.loops && !state.loading && !state.error) {
+    void generate()
+  }
+}
+
 onMounted(() => {
   fit()
   window.addEventListener('resize', fit)
   window.addEventListener('keydown', onKeydown)
+  autoGenerate()
 })
 
-watch(() => state.tab, (tab) => {
-  if (tab === 'loops' && state.mode === 'loop' && !state.loops && !state.loading && !state.error) {
-    void generate()
-  }
-})
+watch(() => state.tab, () => autoGenerate())
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', fit)

@@ -1,4 +1,5 @@
 import type {
+  HotspotPayload,
   LoopCollection,
   LoopRequest,
   Place,
@@ -280,4 +281,28 @@ export async function fetchLoops(
   })
   if (!res.ok) throw new ApiError(res.status, await res.text())
   return (await res.json()) as LoopCollection
+}
+
+/**
+ * GET /api/hotspot —— 全城 1 km 热点网格（离线算好的静态分析产物）。
+ *
+ * 真后端直接从 `data/output/running/v1/hotspot/grid_1000m.json` 读出返回；
+ * 后端未启动时回退到 vite 静态兜底 `/geo/hotspot/grid_1000m.json`
+ * （由 `scripts/sync-geo.mjs` 复制），仍然失败才抛错让页面显示错误态。
+ */
+export async function fetchHotspot(signal?: AbortSignal): Promise<HotspotPayload> {
+  if (USE_MOCK) {
+    await new Promise((resolve) => setTimeout(resolve, 120))
+    const { HOTSPOT_MOCK } = await import('../mocks/hotspot')
+    return HOTSPOT_MOCK
+  }
+  try {
+    return await getJson<HotspotPayload>('/api/hotspot', signal)
+  } catch (error) {
+    try {
+      return await getJson<HotspotPayload>('/geo/hotspot/grid_1000m.json', signal)
+    } catch {
+      throw error
+    }
+  }
 }

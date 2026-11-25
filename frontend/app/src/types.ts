@@ -334,3 +334,49 @@ export interface PoiInfo {
   screenX: number
   screenY: number
 }
+
+/** 热点网格的六维子分（与评分口径一致） */
+export interface HotspotSubScores {
+  s_safety: number
+  s_green: number
+  s_slope: number
+  s_cross: number
+  s_fac: number
+  s_air: number
+}
+
+/** 一个 1 km 热点格；字段与 /api/hotspot 的 cells 项一一对应 */
+export interface HotspotCell {
+  id: string
+  name: string
+  cluster: string
+  lng: number
+  lat: number
+  widthLng: number
+  heightLat: number
+  score: number
+  grade: string
+  rank: number
+  nSeg: number
+  lenM: number
+  isHotspot: boolean
+  subs: HotspotSubScores
+}
+
+/** GET /api/hotspot —— 离线算好的全城热点网格 */
+export interface HotspotPayload {
+  generated_at: string
+  source: string
+  note: string
+  cell: { widthLng: number; heightLat: number }
+  view: [number, number, number, number]
+  summary: {
+    cells: number
+    hotspots: number
+    totalLengthKm: number
+    meanScore: number
+    maxScore: number
+    hotspotRule: string
+  }
+  cells: HotspotCell[]
+}

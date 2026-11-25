@@ -31,7 +31,7 @@ function gradeColor(grade: string): string {
     <template v-if="selectedHotspot">
       <div class="head">
         <div>
-          <p class="eyebrow">{{ selectedHotspot.isHotspot ? '高值聚集格' : '网格单元' }} · 第 {{ selectedHotspot.rank }} 名</p>
+          <p class="eyebrow">{{ selectedHotspot.isHotspot ? '高值聚集格' : '网格单元' }}<template v-if="selectedHotspot.rank > 0"> · 第 {{ selectedHotspot.rank }} 名</template><template v-else> · 样本不足 1 km</template></p>
           <h3>{{ selectedHotspot.name }}</h3>
           <p class="cluster">{{ selectedHotspot.cluster }}</p>
         </div>
@@ -74,7 +74,7 @@ function gradeColor(grade: string): string {
         以此处为起点
       </button>
       <p class="note">
-        只回填起点，不自动生成路线。当前为示例网格，接入 `grid_500m.geojson` / `grid_1000m.geojson` 后字段保持不变。
+        只回填起点，不自动生成路线。网格由离线脚本按 1 km 聚合，评分为样本路段的长度加权平均。
       </p>
     </template>
     <p v-else class="empty">点击地图上的网格或左侧榜单查看详情。</p>

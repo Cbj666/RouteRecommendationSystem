@@ -91,7 +91,8 @@ export interface PlannerState {
 }
 
 export const state = reactive<PlannerState>({
-  tab: 'map',
+  // 默认进入环线推荐（适宜性地图页只保留源码，不展示入口）
+  tab: 'loops',
   origin: PRESET_ORIGINS[0],
   originSource: 'preset',
   onewayA: null,
@@ -383,10 +384,10 @@ export function clearError(): void {
  * 统一单图视图 + 空间图层（由 public/geo/manifest.json 驱动）
  * ------------------------------------------------------------------ */
 
-/** 热点页专用视野：都市区，覆盖东湖—武大—光谷—汉口江滩。 */
-export const HOTSPOT_VIEW: ViewBox = fitViewBBox([114.24, 30.45, 114.50, 30.63], VIEW_PADDING)
+/** 热点页专用视野：武汉全市域（与 build_hotspot_grid.py 输出的 view 一致）。 */
+export const HOTSPOT_VIEW: ViewBox = fitViewBBox([113.6928, 30.006, 115.076, 31.338], VIEW_PADDING)
 
-/** 全市统一底图投影视图（zoom=1 时一屏看完整座武汉）；热点页改用都市区视野 */
+/** 全市统一底图投影视图（zoom=1 时一屏看完整座武汉）；热点页改用全市域视野 */
 export const currentView = computed<ViewBox>(() => {
   if (state.tab === 'hotspots') return HOTSPOT_VIEW
   const city = state.manifest?.view.city

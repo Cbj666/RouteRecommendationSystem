@@ -11,8 +11,9 @@ import {
 } from '../stores/planner'
 import type { Place } from '../types'
 
+// 页签顺序：环线推荐 → 热点地图。适宜性地图页暂不展示入口，
+// 但 TabKey/App.vue 的 map 分支与相关源码保留，需要时可恢复。
 const tabs = [
-  { key: 'map', label: '适宜性地图' },
   { key: 'loops', label: '环线推荐' },
   { key: 'hotspots', label: '热点地图' },
 ] as const

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { segmentColor } from '../lib/color'
 import { project, type ViewBox } from '../lib/projection'
-import type { HotspotCell } from '../mocks/hotspot'
+import type { HotspotCell } from '../types'
 
 const props = defineProps<{
   cells: HotspotCell[]
@@ -11,19 +11,50 @@ const props = defineProps<{
   selectedId: string
 }>()
 
+/** 按分数从低到高画，避免高分格被低分格盖住 */
 const ordered = computed(() => [...props.cells].sort((a, b) => a.score - b.score))
+
+const selectedCell = computed(
+  () => props.cells.find((cell) => cell.id === props.selectedId) ?? null,
+)
+
+/**
+ * 全城 5,480 个格子逐个建 <path> 会产生同样多的 DOM 节点，
+ * 这里按填充色合并成「每种档次一条 path」，既快又不会出现白色接缝。
+ */
+interface Layer {
+  fill: string
+  d: string
+}
+
+function grouped(cells: HotspotCell[]): Layer[] {
+  const groups = new Map<string, string[]>()
+  for (const cell of cells) {
+    const fill = segmentColor(cell.score, cell.grade)
+    const paths = groups.get(fill) ?? []
+    paths.push(cellPath(cell))
+    groups.set(fill, paths)
+  }
+  return [...groups].map(([fill, paths]) => ({ fill, d: paths.join('') }))
+}
+
+const baseLayers = computed(() => grouped(ordered.value.filter((cell) => !cell.isHotspot)))
+const hotLayers = computed(() => grouped(ordered.value.filter((cell) => cell.isHotspot)))
 
 function cellPath(cell: HotspotCell): string {
   const halfW = cell.widthLng / 2
   const halfH = cell.heightLat / 2
   const [x0, y0] = project(props.view, cell.lng - halfW, cell.lat + halfH)
   const [x1, y1] = project(props.view, cell.lng + halfW, cell.lat - halfH)
-  return `M${x0.toFixed(1)},${y0.toFixed(1)}L${x1.toFixed(1)},${y0.toFixed(1)}L${x1.toFixed(1)},${y1.toFixed(1)}L${x0.toFixed(1)},${y1.toFixed(1)}Z`
+  // 相邻格各扩 0.6px，消除缩放时的亚像素白缝
+  const xa = (Math.min(x0, x1) - 0.6).toFixed(1)
+  const xb = (Math.max(x0, x1) + 0.6).toFixed(1)
+  const ya = (Math.min(y0, y1) - 0.6).toFixed(1)
+  const yb = (Math.max(y0, y1) + 0.6).toFixed(1)
+  return `M${xa},${ya}L${xb},${ya}L${xb},${yb}L${xa},${yb}Z`
 }
 
-function fillOf(cell: HotspotCell): string {
-  return segmentColor(cell.score, cell.grade)
-}
+const selectedPath = computed(() => (selectedCell.value ? cellPath(selectedCell.value) : ''))
 </script>
 
 <template>
@@ -31,28 +62,35 @@ function fillOf(cell: HotspotCell): string {
     class="hotspot-overlay"
     :viewBox="pixelBox"
     preserveAspectRatio="none"
+    :data-cells="cells.length"
     aria-hidden="true"
   >
-    <g v-for="cell in ordered" :key="cell.id">
-      <path
-        :d="cellPath(cell)"
-        :fill="fillOf(cell)"
-        :fill-opacity="cell.id === selectedId ? 0.82 : cell.isHotspot ? 0.56 : 0.42"
-        :stroke="cell.id === selectedId ? '#1f2a26' : cell.isHotspot ? '#15503c' : '#ffffff'"
-        :stroke-width="cell.id === selectedId ? 2.2 : cell.isHotspot ? 1.1 : 0.45"
-        :stroke-opacity="cell.id === selectedId ? 1 : 0.88"
-        stroke-linejoin="round"
-      />
-      <path
-        v-if="cell.id === selectedId"
-        :d="cellPath(cell)"
-        fill="none"
-        stroke="#1f2a26"
-        stroke-width="5"
-        stroke-opacity="0.18"
-        stroke-linejoin="round"
-      />
-    </g>
+    <path
+      v-for="layer in baseLayers"
+      :key="'base-' + layer.fill"
+      :d="layer.d"
+      :fill="layer.fill"
+      fill-opacity="0.38"
+      stroke="none"
+    />
+    <path
+      v-for="layer in hotLayers"
+      :key="'hot-' + layer.fill"
+      :d="layer.d"
+      :fill="layer.fill"
+      fill-opacity="0.62"
+      stroke="#0f4432"
+      stroke-opacity="0.35"
+      stroke-width="0.6"
+    />
+    <path
+      v-if="selectedPath"
+      :d="selectedPath"
+      fill="none"
+      stroke="#1f2a26"
+      stroke-width="2.4"
+      stroke-linejoin="round"
+    />
   </svg>
 </template>
 

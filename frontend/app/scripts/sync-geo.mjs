@@ -47,6 +47,8 @@ const SRC = {
   hotspots: 'data/output/running/v1/demo/hotspots_kept.csv',
   airStations: 'data/processed/running/v1/air_quality_stations.csv',
   loops: 'data/output/running/v1/loops.geojson',
+  // 热点页的分析产物（1 km 全城网格，JSON）；不在图层清单里，单独复制
+  hotspotGrid: 'data/output/running/v1/hotspot/grid_1000m.json',
 }
 
 // ---------------------------------------------------------------------------
@@ -560,6 +562,19 @@ async function main() {
   // 清理旧版 30 MB 全量路网文件
   await rm(join(outDir, 'segments_all.geojson'), { force: true })
 
+  // 2b. 热点网格：离线分析产物（JSON），只给热点页当后端不可用时的静态兜底
+  const hotspotPath = join(outDir, 'hotspot', 'grid_1000m.json')
+  if (await needsRewrite(hotspotPath, sourceStats.get(SRC.hotspotGrid))) {
+    await mkdir(dirname(hotspotPath), { recursive: true })
+    await atomicCopy(fromRepo(SRC.hotspotGrid), hotspotPath)
+    console.log(`[sync-geo] 复制 hotspot/grid_1000m.json ← ${SRC.hotspotGrid}`)
+  } else {
+    console.log('[sync-geo] 跳过 hotspot/grid_1000m.json（已是最新）')
+  }
+  const hotspot = await readJson(hotspotPath)
+  const hotspotCells = Array.isArray(hotspot.cells) ? hotspot.cells : []
+  if (hotspotCells.length === 0) throw new Error('热点网格 cells 为空')
+
   // 3. CSV → 点图层
   for (const config of POINT_LAYERS) {
     const dest = join(outDir, config.file)
@@ -708,6 +723,13 @@ async function main() {
       bbox: metricOf('hotspots').bbox,
       rendered_as: ['hotspots'],
     },
+    {
+      path: SRC.hotspotGrid,
+      format: 'JSON 1 km 网格',
+      count: hotspotCells.length,
+      bbox: Array.isArray(hotspot.view) ? hotspot.view : null,
+      rendered_as: ['hotspot'],
+    },
   ]
 
   // 6. manifest.json
@@ -739,6 +761,13 @@ async function main() {
       spatial_files: inventory.length,
       layers: layers.length,
       features: layers.reduce((sum, layer) => sum + layer.count, 0),
+    },
+    hotspot: {
+      file: 'hotspot/grid_1000m.json',
+      cells: hotspotCells.length,
+      view: hotspot.view ?? null,
+      generated_at: hotspot.generated_at ?? null,
+      note: hotspot.note ?? '',
     },
     layers,
     inventory,

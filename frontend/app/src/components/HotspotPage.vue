@@ -8,7 +8,7 @@ import HotspotRanking from './HotspotRanking.vue'
 import MapStage from './MapStage.vue'
 import FooterBar from './FooterBar.vue'
 import StatusOverlay from './StatusOverlay.vue'
-import { filteredHotspots, hotspotState, selectHotspot } from '../stores/hotspot'
+import { filteredHotspots, hotspotState, loadHotspot, selectHotspot } from '../stores/hotspot'
 import { currentView } from '../stores/planner'
 
 const root = ref<HTMLElement | null>(null)
@@ -48,6 +48,8 @@ function onMapClick(event: MouseEvent): void {
 }
 
 onMounted(() => {
+  // 网格数据来自后端（/api/hotspot）或静态兜底；失败时页面显示错误态。
+  void loadHotspot()
   frame = (root.value?.querySelector('.map-frame') as HTMLElement | null) ?? null
   svg = (frame?.querySelector('svg') as SVGSVGElement | null) ?? null
   if (frame) {

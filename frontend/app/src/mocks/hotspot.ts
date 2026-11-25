@@ -1,39 +1,16 @@
 /**
- * 热点地图的前端示例网格。
+ * 热点地图的 mock 兜底网格（真实数据走 /api/hotspot）。
  *
- * 真实数据将由 `build/build_hotspot_grid.py` 生成 500 m / 1 km 网格，
- * 再由同步脚本复制到 `frontend/app/public/geo/hotspot/`。这里先用 1 km
- * 都市区样本把页面结构、交互和视觉跑通，字段名与任务书保持一致，
- * 后续替换数据源即可。
+ * 真实数据由 `backend/scripts/build_hotspot_grid.py` 生成全城 1 km 网格，
+ * 写入 `data/output/running/v1/hotspot/grid_1000m.json`，再由 `/api/hotspot`
+ * 提供；mock 模式（VITE_USE_MOCK 未设或不为 0）没有后端，这里用 25×20 的
+ * 都市区合成格把页面结构、交互与视觉跑通，字段名与真实响应保持一致。
  */
+import type { HotspotCell, HotspotPayload } from '../types'
 
-export interface HotspotSubScores {
-  s_safety: number
-  s_green: number
-  s_slope: number
-  s_cross: number
-  s_fac: number
-  s_air: number
-}
+export type { HotspotCell, HotspotPayload } from '../types'
 
-export interface HotspotCell {
-  id: string
-  name: string
-  cluster: string
-  lng: number
-  lat: number
-  widthLng: number
-  heightLat: number
-  score: number
-  grade: string
-  rank: number
-  nSeg: number
-  lenM: number
-  isHotspot: boolean
-  subs: HotspotSubScores
-}
-
-export const HOTSPOT_SOURCE_NOTE = '1 km 网格 · 都市区示例 · 待接入分析结果'
+export const HOTSPOT_SOURCE_NOTE = '1 km 网格 · 都市区示例 · mock 模式'
 
 const CELL_W = 0.0104
 const CELL_H = 0.009
@@ -145,3 +122,25 @@ cells.sort((a, b) => b.score - a.score)
 for (const [index, cell] of cells.entries()) cell.rank = index + 1
 
 export const HOTSPOT_CELLS: HotspotCell[] = cells
+
+/** mock 模式下的 /api/hotspot 等价响应（都市区 500 格合成数据） */
+export const HOTSPOT_MOCK: HotspotPayload = {
+  generated_at: new Date(0).toISOString(),
+  source: 'src/mocks/hotspot.ts',
+  note: HOTSPOT_SOURCE_NOTE,
+  cell: { widthLng: CELL_W, heightLat: CELL_H },
+  view: [LON0, LAT0, LON0 + COLS * CELL_W, LAT0 + ROWS * CELL_H],
+  summary: {
+    cells: cells.length,
+    hotspots: cells.filter((cell) => cell.isHotspot).length,
+    totalLengthKm: Number(
+      (cells.reduce((sum, cell) => sum + cell.lenM, 0) / 1000).toFixed(1),
+    ),
+    meanScore: Number(
+      (cells.reduce((sum, cell) => sum + cell.score, 0) / cells.length).toFixed(1),
+    ),
+    maxScore: cells[0]?.score ?? 0,
+    hotspotRule: '综合分 ≥ 66（mock 示例规则）',
+  },
+  cells,
+}

@@ -35,6 +35,9 @@ WATER_GREEN_GEOJSON = WEB / "water_green.geojson"
 POI_CSV = RUN / "amap_sport_poi.csv"
 TOILET_CSV = RUN / "amap_toilet_poi.csv"
 
+# 热点页的离线分析产物：全城 1 km 网格（build_hotspot_grid.py 生成）
+HOTSPOT_JSON = paths.OUTPUT / "running" / "v1" / "hotspot" / "grid_1000m.json"
+
 # 未显式传入 bbox 时使用的默认路段视口，与原型展示范围一致
 DEFAULT_SEGMENT_BBOX = (114.305, 30.508, 114.405, 30.562)
 
@@ -311,6 +314,36 @@ def pois() -> gpd.GeoDataFrame:
 def toilets() -> gpd.GeoDataFrame:
     """返回缓存的公共厕所点数据。"""
     return _read_once("toilets", _load_toilets)
+
+
+# 热点网格 JSON 缓存；文件由 build_hotspot_grid.py 生成，服务端只读不重算
+_hotspot: dict[str, Any] | None = None
+_hotspot_lock = threading.Lock()
+
+
+def _load_hotspot() -> dict[str, Any]:
+    """读取并校验热点网格产物；缺文件时提示先跑构建脚本。"""
+    path = _require(
+        HOTSPOT_JSON, "请先运行 backend/scripts/build_hotspot_grid.py"
+    )
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        raise DatasetUnavailable(f"读取 {path.name} 失败：{exc}") from exc
+    cells = payload.get("cells")
+    if not isinstance(cells, list) or not cells:
+        raise DatasetUnavailable(f"{path.name} 的 cells 为空")
+    return payload
+
+
+def hotspot() -> dict[str, Any]:
+    """返回缓存的全城 1 km 热点网格（前端 /api/hotspot 的响应体）。"""
+    global _hotspot
+    if _hotspot is None:
+        with _hotspot_lock:
+            if _hotspot is None:
+                _hotspot = _load_hotspot()
+    return _hotspot
 
 
 # 水体并集用于判断起点是否落在江/湖内部；只构建一次
