@@ -1,15 +1,12 @@
 /**
  * 图层样式注册表：manifest.layers[].style → SVG 绘制参数。
- *
- * 颜色/线宽/透明度按任务契约固定（与 reference / PPT 视觉语言一致），
- * 改这里就能整体换配色，adapter 里不再出现魔法数字。
  */
 import type { LayerStyle, MapLayerDef } from '../types'
 
 /**
  * 图层固定叠放顺序（从下到上）。
- * route / marker 不在此列表里——它们永远追加在最后，保持最上层。
- * roads 的三种变体（核心 / 干道 / 全量）共用同一个 data-layer="roads" 组。
+ * selection / route / marker 永远追加在最后，保持最上层；
+ * 设施（facilities / toilets）在路网之上、路线之下。
  */
 export const LAYER_ORDER = [
   'water',
@@ -21,6 +18,7 @@ export const LAYER_ORDER = [
   'metro_stops',
   'bus_stops',
   'facilities',
+  'toilets',
   'hotspots',
   'air_stations',
 ] as const
@@ -28,7 +26,7 @@ export const LAYER_ORDER = [
 /** 面板分组顺序（与 manifest.layers 的 group 字段一致） */
 export const LAYER_GROUP_LABELS = ['底图', '路网', '交通', '设施', '分析'] as const
 
-/** 图层定义 → SVG 组 id（路网变体合并到 roads 组） */
+/** 图层定义 → SVG 组 id */
 export function layerGroupId(def: MapLayerDef): string {
   return def.style === 'score' ? 'roads' : def.id
 }
@@ -42,30 +40,55 @@ export const AREA_STYLES = {
 
 /** 线图层样式（地铁 / 公交） */
 export const LINE_STYLES = {
-  metroRoute: { stroke: '#B4654A', width: 1.4, opacity: 0.72 },
+  metroRoute: { stroke: '#B4654A', width: 1.5, opacity: 0.72 },
   busRoute: { stroke: '#C9A227', width: 1, opacity: 0.45 },
 } as const
 
 export interface PointStyle {
   fill: string
-  /** 圆点半径（SVG 像素） */
+  /** 屏幕像素半径 */
   r: number
   opacity?: number
   stroke?: string
   strokeWidth?: number
 }
 
-/** 点图层样式（设施 / 地铁站 / 公交站 / 热点 / 空气站） */
+/** 通用点图层样式（地铁站 / 公交站 / 热点 / 空气站） */
 export const POINT_STYLES: Record<
-  'facility' | 'metroStop' | 'busStop' | 'hotspot' | 'air',
+  'metroStop' | 'busStop' | 'hotspot' | 'air',
   PointStyle
 > = {
-  facility: { fill: '#C0762A', r: 1.6, opacity: 0.7 },
-  metroStop: { fill: '#8C4A3F', r: 2.2, stroke: '#FFFFFF', strokeWidth: 0.6 },
-  busStop: { fill: '#8A9A93', r: 1.1, opacity: 0.65 },
-  hotspot: { fill: '#D94F4F', r: 4, opacity: 0.8 },
-  air: { fill: '#5B8FA8', r: 3 },
+  metroStop: { fill: '#8C4A3F', r: 2.6, stroke: '#FFFFFF', strokeWidth: 0.8 },
+  busStop: { fill: '#8A9A93', r: 1.8, opacity: 0.7 },
+  hotspot: { fill: '#D94F4F', r: 4.5, opacity: 0.85, stroke: '#FFFFFF', strokeWidth: 0.8 },
+  air: { fill: '#5B8FA8', r: 3.5, stroke: '#FFFFFF', strokeWidth: 0.8 },
 }
+
+/** F4 设施符号样式：形状优先区分，颜色辅助 */
+export const POI_STYLES = {
+  facility: {
+    fill: '#C2410C',
+    size: 5, // 4–5 px 圆角方块
+    rx: 1.2,
+    stroke: '#FFFFFF',
+    strokeWidth: 0.75,
+  },
+  toilet: {
+    fill: '#1D4ED8',
+    r: 2.5, // 5 px 直径圆形 + 白边
+    stroke: '#FFFFFF',
+    strokeWidth: 1,
+    accessibleDotR: 0.9,
+    accessibleDotFill: '#FFFFFF',
+  },
+  cluster: {
+    fill: '#374151',
+    r: 9, // 18 px 直径深灰圆
+    stroke: '#FFFFFF',
+    strokeWidth: 1.4,
+    textFill: '#FFFFFF',
+  },
+} as const
 
 /** 面板色块（路网用色阶渐变） */
 export const SWATCH: Record<LayerStyle, string> = {
@@ -77,10 +100,11 @@ export const SWATCH: Record<LayerStyle, string> = {
   metroStop: '#8C4A3F',
   busRoute: '#C9A227',
   busStop: '#8A9A93',
-  facility: '#C0762A',
+  facility: '#C2410C',
+  toilet: '#1D4ED8',
   hotspot: '#D94F4F',
   air: '#5B8FA8',
 }
 
-/** 路网描边宽度 / 透明度：与旧版 SvgAdapter 完全一致 */
-export const ROAD_STROKE = { width: 1.25, opacity: 0.95 } as const
+/** 路网描边宽度（使用 non-scaling-stroke 保持缩放后视觉稳定） */
+export const ROAD_STROKE = { overviewWidth: 1.3, detailWidth: 1.7, opacity: 0.94 } as const

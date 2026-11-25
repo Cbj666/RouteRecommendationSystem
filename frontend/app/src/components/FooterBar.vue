@@ -1,6 +1,6 @@
 <template>
   <footer class="foot">
-    数据来源：OSM 路网 · SRTM 30 m 坡度 · ESA WorldCover 10 m 树冠 · CHAP 1 km 空气 · 高德场馆 POI
+    数据来源：OSM 路网 · SRTM 30 m 坡度 · ESA WorldCover 10 m 树冠 · CHAP 1 km 空气 · 高德场馆与公厕 POI
   </footer>
 </template>
 

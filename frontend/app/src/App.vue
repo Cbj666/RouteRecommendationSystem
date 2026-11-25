@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CSSProperties } from 'vue'
 import FooterBar from './components/FooterBar.vue'
-import ComparePage from './components/ComparePage.vue'
 import LayerPanel from './components/LayerPanel.vue'
 import LeftPanel from './components/LeftPanel.vue'
 import LegendBox from './components/LegendBox.vue'
@@ -29,7 +28,7 @@ const stageStyle = computed<CSSProperties>(() =>
 /** ←/→ 切换候选环线；输入框里不拦截 */
 function onKeydown(e: KeyboardEvent): void {
   if (e.metaKey || e.ctrlKey || e.altKey) return
-  if (state.tab !== 'loops') return
+  if (state.tab !== 'loops' || state.mode !== 'loop') return
   const el = e.target as HTMLElement | null
   if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return
   if (loopCount.value < 2) return
@@ -49,7 +48,9 @@ onMounted(() => {
 })
 
 watch(() => state.tab, (tab) => {
-  if (tab === 'loops' && !state.loops && !state.loading && !state.error) void generate()
+  if (tab === 'loops' && state.mode === 'loop' && !state.loops && !state.loading && !state.error) {
+    void generate()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -62,21 +63,16 @@ onBeforeUnmount(() => {
   <div class="viewport">
     <div class="stage" :class="{ mobile, 'map-mode': state.tab === 'map' }" :style="stageStyle">
       <TopBar />
-      <KeepAlive>
-        <ComparePage v-if="state.tab === 'compare'" />
-      </KeepAlive>
-      <template v-if="state.tab !== 'compare'">
-        <MapStage :browse="state.tab === 'map'" />
-        <MapDetails v-if="state.tab === 'map'" />
-        <template v-if="state.tab === 'loops'">
-          <LeftPanel />
-          <RightPanel />
-        </template>
-        <LayerPanel />
-        <LegendBox />
-        <FooterBar />
-        <StatusOverlay />
+      <MapStage :browse="state.tab === 'map'" />
+      <MapDetails v-if="state.tab === 'map'" />
+      <template v-if="state.tab === 'loops'">
+        <LeftPanel />
+        <RightPanel />
       </template>
+      <LayerPanel />
+      <LegendBox />
+      <FooterBar />
+      <StatusOverlay />
     </div>
   </div>
 </template>
