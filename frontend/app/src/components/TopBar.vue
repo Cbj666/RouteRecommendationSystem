@@ -14,6 +14,7 @@ import type { Place } from '../types'
 const tabs = [
   { key: 'map', label: '适宜性地图' },
   { key: 'loops', label: '环线推荐' },
+  { key: 'hotspots', label: '热点地图' },
 ] as const
 
 type Option =

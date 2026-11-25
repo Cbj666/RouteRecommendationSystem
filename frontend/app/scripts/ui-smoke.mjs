@@ -2,10 +2,13 @@
  * 前端交付冒烟，使用 Edge headless 与 CDP。
  * 覆盖 F1（统一单图 + 视口路段加载 + 路线视野联动）、
  * F2（单行线两步点选 A/B + 绕行系数 + 选点报错）、
- * F3（删除起点对比，仅保留两页签）、
- * F4（运动场馆/公厕分符号、独立开关、整城聚合、无障碍筛选与图例）。
+ * F3（三页签：适宜性地图 / 环线推荐 / 热点地图）、
+ * F4（运动场馆/公厕分符号、独立开关、整城聚合、无障碍筛选与图例）、
+ * F5（地点搜索：环线模式设为起点、单行线模式依次落 A/B）。
  *
- * UI_REAL=1 连接真实后端；默认 mock 模式同样完整覆盖环线与单行线。
+ * UI_REAL=1 连接真实后端（地点搜索走高德）；默认 mock 同样覆盖环线、单行线、
+ * 热点网格与 4 条内置地点。UI_URL 指向开发服务器；UI_SCREENSHOTS=1 可选截图。
+ * 记录写入 data/output/ui/<UI_OUT>，默认 frontend-delivery。
  */
 import { spawn } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -204,17 +207,18 @@ try {
     await evalJs(`document.querySelectorAll('.mode-segs .seg')[${index}].click()`)
   }
 
-  // F3: 顶部只有两页签，无起点对比
+  // F3: 顶部三页签（起点对比页已在 main 移除）
   await check(
-    'F3 仅保留两页签且无起点对比',
-    "document.querySelectorAll('.tabs .tab').length === 2 && !document.body.innerText.includes('起点对比')",
+    'F3 三页签且无起点对比',
+    "document.querySelectorAll('.tabs .tab').length === 3 && !document.body.innerText.includes('起点对比')",
   )
 
   // F1: 单图就绪，无片区/全城开关，无 30 MB 全量路网开关
   await check(
     'F1 统一单图与图层就绪',
-    "document.querySelector('g[data-layer=roads] path') && document.querySelector('.layers') && !document.querySelector('.extent') && !document.querySelector('[data-layer=roads_all]')",
+    "document.querySelector('g[data-layer=roads] path') && document.querySelector('.layers') && document.querySelector('.map-details') && !document.querySelector('.extent') && !document.querySelector('[data-layer=roads_all]')",
   )
+  await check('地图视图隐藏路线条件', "!document.querySelector('.left')")
 
   // F4: 整城低缩放聚合显示，且场馆与公厕独立开关默认开启
   await check(
@@ -222,6 +226,14 @@ try {
     "document.querySelector('g[data-layer=poi_clusters] path') && document.querySelector('[data-layer=facilities] .layer-check')?.getAttribute('aria-checked') === 'true' && document.querySelector('[data-layer=toilets] .layer-check')?.getAttribute('aria-checked') === 'true'",
   )
 
+  // F5: 热点地图页签（示例网格，来自 PR #6）
+  await tab(2)
+  await check(
+    '热点页签与网格',
+    "document.querySelector('.hotspot-rank h3')?.textContent.includes('武汉跑步热点地图') && document.querySelectorAll('.hotspot-overlay path').length > 50 && document.querySelector('.hotspot-detail')",
+  )
+  await capture('hotspot-desktop')
+  await tab(0)
   await click('[data-layer="water"] .layer-check')
   await check('关闭水体', "!document.querySelector('g[data-layer=water]')")
   await click('[data-layer="water"] .layer-check')
@@ -363,14 +375,20 @@ try {
     mobile: false,
   })
   await check(
-    '390 px 无横向溢出且仅两页签',
-    "document.documentElement.scrollWidth <= 390 && document.querySelectorAll('.tabs .tab').length === 2",
+    '390 px 无横向溢出且三页签',
+    "document.documentElement.scrollWidth <= 390 && document.querySelectorAll('.tabs .tab').length === 3",
   )
   await tab(1)
   await check(
     '390 px 推荐页无横向溢出',
     "document.querySelector('.left') && document.documentElement.scrollWidth <= 390",
   )
+  await tab(2)
+  await check(
+    '390 px 热点页可读',
+    "document.querySelector('.hotspot-rank') && document.querySelector('.hotspot-detail') && document.documentElement.scrollWidth <= 390",
+  )
+  await capture('hotspot-mobile')
   await send('Emulation.setDeviceMetricsOverride', {
     width: 320,
     height: 568,
@@ -382,7 +400,7 @@ try {
   if (!REAL) {
     for (const scenario of ['empty', 'error', 'slow']) {
       await send('Page.navigate', { url: URL_APP + '?mock=' + scenario })
-      await check('场景导航 ' + scenario, "document.querySelectorAll('.tabs .tab').length === 2")
+      await check('场景导航 ' + scenario, "document.querySelectorAll('.tabs .tab').length === 3")
       await tab(1)
       await check(
         '路线状态 ' + scenario,

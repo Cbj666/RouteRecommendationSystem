@@ -10,7 +10,7 @@ import type {
   ViewBox,
 } from '../types'
 
-export type TabKey = 'map' | 'loops'
+export type TabKey = 'map' | 'loops' | 'hotspots'
 export type Mode = 'loop' | 'oneway'
 
 export interface Origin {
@@ -383,8 +383,12 @@ export function clearError(): void {
  * 统一单图视图 + 空间图层（由 public/geo/manifest.json 驱动）
  * ------------------------------------------------------------------ */
 
-/** 全市统一底图投影视图（zoom=1 时一屏看完整座武汉） */
+/** 热点页专用视野：都市区，覆盖东湖—武大—光谷—汉口江滩。 */
+export const HOTSPOT_VIEW: ViewBox = fitViewBBox([114.24, 30.45, 114.50, 30.63], VIEW_PADDING)
+
+/** 全市统一底图投影视图（zoom=1 时一屏看完整座武汉）；热点页改用都市区视野 */
 export const currentView = computed<ViewBox>(() => {
+  if (state.tab === 'hotspots') return HOTSPOT_VIEW
   const city = state.manifest?.view.city
   if (city) {
     return fitViewBBox([city.lon0, city.lat0, city.lon1, city.lat1], VIEW_PADDING)
