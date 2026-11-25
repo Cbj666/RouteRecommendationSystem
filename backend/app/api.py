@@ -15,6 +15,7 @@ A→B 单行线推荐接口。前端不再直接读取 ``data/`` 下的文件。
     GET  /api/pois                  返回运动场馆点
     GET  /api/facilities            /api/pois 的兼容别名
     GET  /api/toilets               返回公共厕所点
+    GET  /api/places/search         代理高德关键字搜索（返回 WGS84 坐标）
     GET  /api/layers                返回机器可读的图层目录
     GET  /api/meta                  返回权重、分数统计与数据口径
     POST /api/routes                生成环线或 A→B 单行线
@@ -47,7 +48,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from shapely.geometry import mapping
 
-from . import datasets, paths, running
+from . import amap, datasets, paths, running
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +170,7 @@ app = FastAPI(
         "路段评分、水绿底图、运动场馆、公共厕所、闭合环线与 A→B 单行线。"
         "坐标一律 WGS84；数据由后端统一提供，前端不再直接读取 data/ 下的文件。"
     ),
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
@@ -857,6 +858,52 @@ def toilets(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+@app.get(
+    "/api/places/search",
+    summary="高德地点搜索（后端代理，返回 WGS84 坐标）",
+)
+def place_search(
+    q: str = Query(
+        ...,
+        min_length=1,
+        max_length=64,
+        description="搜索关键词，例如「东湖绿道」「武汉大学」「汉口江滩」",
+    ),
+    limit: int = Query(
+        8, ge=1, le=amap.MAX_LIMIT, description="返回地点数，1–20，默认 8"
+    ),
+) -> JSONResponse:
+    """代理高德关键字搜索，前端不接触高德 Key。
+
+    高德返回 GCJ-02，这里统一转成项目使用的 WGS84 再返回；`amap_lng/amap_lat`
+    保留高德原始坐标仅用于排错。相同关键词在服务端缓存 5 分钟。
+
+    错误：未配置 Key → 503；高德业务错误/不可用 → 502；请求超时 → 504。
+    """
+    keywords = q.strip()
+    if not keywords:
+        raise HTTPException(status_code=422, detail="搜索关键词不能为空")
+
+    try:
+        places = amap.search_places(keywords, limit=limit)
+    except amap.AmapConfigError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except amap.AmapTimeoutError as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
+    except amap.AmapUnavailableError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return JSONResponse(
+        content={
+            "provider": "amap",
+            "query": keywords,
+            "count": len(places),
+            "places": places,
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/api/layers", summary="数据目录（字段、数量、来源、更新时间）")
 def layers() -> dict:
     """前端可用它判断图层是否就绪、字段含义，以及数据文件更新时间。"""
@@ -998,6 +1045,17 @@ def layers() -> dict:
         "crs": "EPSG:4326",
         "default_segment_bbox": list(datasets.DEFAULT_SEGMENT_BBOX),
         "routes": _route_catalog(),
+        "search": {
+            "provider": "amap",
+            "endpoint": "/api/places/search",
+            "params": ["q", "limit"],
+            "configured": amap.configured(),
+            "crs": "EPSG:4326",
+            "notes": (
+                "后端代理高德 Web 服务；高德 GCJ-02 已转 WGS84。"
+                "Key 只从服务端 .env 的 GAODE_KEY 读取，不下发浏览器。"
+            ),
+        },
         "layers": catalog,
     }
 
@@ -1092,6 +1150,7 @@ def meta() -> dict:
             "pois": "/api/pois",
             "facilities": "/api/facilities",
             "toilets": "/api/toilets",
+            "place_search": "/api/places/search",
             "routes": "/api/routes",
             "loops": "/api/loops",
             "catalog": "/api/layers",

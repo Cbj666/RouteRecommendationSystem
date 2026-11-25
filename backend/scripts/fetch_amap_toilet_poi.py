@@ -43,6 +43,8 @@ import shapely
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # backend/ for `app`
+from app.secrets import require as require_secret  # noqa: E402
 from geo_utils import gcj02_to_wgs84  # noqa: E402
 
 BOUNDARY = ROOT / "data" / "raw" / "boundary" / "武汉市_市.geojson"
@@ -57,14 +59,13 @@ DAILY_MARKERS = ("DAILY_QUERY_OVER_LIMIT", "INSUFFICIENT_PRIVILEGES", "USER_DAIL
 
 
 def load_key() -> str:
-    for name in (".env", ".env.txt"):
-        p = ROOT / name
-        if not p.exists():
-            continue
-        m = re.search(r"GAODE_KEY\s*=\s*(\S+)", p.read_text(encoding="utf-8", errors="ignore"))
-        if m:
-            return m.group(1).strip()
-    raise RuntimeError("GAODE_KEY not found in .env")
+    """高德 Web 服务 Key：环境变量优先，其次项目根 .env（见 app/secrets.py）。"""
+    return require_secret(
+        "AMAP_WEB_KEY",
+        "GAODE_KEY",
+        "AMAP_KEY",
+        hint="https://lbs.amap.com/ 控制台 → 应用管理 → Web 服务 Key",
+    )
 
 
 def query(key: str, lon: float, lat: float, page: int) -> dict:

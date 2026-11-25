@@ -10,10 +10,9 @@
     />
     <title>跑步友好度 · 武汉</title>
     <!--
-      百度地图 JS API（WebGL）在 M3 接入，由 src/map/baiduAdapter.ts 动态注入：
-        VITE_BAIDU_AK 写在 frontend/app/.env.local；
-        AK 需把 http://127.0.0.1:5173/* 加入 Referer 白名单。
-      当前 M1 使用 SVG 适配器，不加载任何外部地图脚本。
+      本页不加载任何第三方地图 JS，也不在浏览器持有任何地图开发者 Key。
+      底图来自构建期 public/geo 静态图层（SVG 适配器）；
+      地点搜索统一走 api/client.ts 的 searchPlaces → GET /api/places/search，Key 只在后端。
     -->
   </head>
   <body>

@@ -3,14 +3,12 @@ import { computed, ref } from 'vue'
 import { LAYER_GROUP_LABELS, SWATCH } from '../map/layerConfig'
 import {
   roadSuitabilityEnabled,
-  setExtent,
   state,
   toggleLayer,
 } from '../stores/planner'
 import type { LayerStyle } from '../types'
 
 interface LayerRow {
-  /** data-layer 值：普通图层 = 图层 id；适宜性路网 = "roads"；全量路网 = "roads_all" */
   id: string
   label: string
   count: number
@@ -35,17 +33,11 @@ const errorText = computed(() => {
   return ''
 })
 
-/**
- * 面板行：13 个 manifest 图层里 3 个路网变体合成 2 行
- * - 「适宜性路网」= 当前 extent 对应的核心 / 干道变体（单行，data-layer="roads"）
- * - 「全量路网（9 万段，加载较慢）」= roads_all 单独开关，开启自动切全城
- */
 const groups = computed<LayerGroup[]>(() => {
   const current = state.manifest
   if (!current) return []
   const rowsByGroup = new Map<string, LayerRow[]>()
   const groupOrder: string[] = []
-  let roadsRowAdded = false
 
   const push = (group: string, row: LayerRow): void => {
     let rows = rowsByGroup.get(group)
@@ -59,32 +51,15 @@ const groups = computed<LayerGroup[]>(() => {
 
   for (const def of current.layers) {
     if (def.variant === 'roads') {
-      if (def.variantLevel === 'all') {
-        push(def.group, {
-          id: 'roads_all',
-          label: '全量路网（9 万段，加载较慢）',
-          count: def.count,
-          enabled: !!state.layersEnabled['roads_all'],
-          loading: !!state.layerLoading['roads_all'],
-          style: 'score',
-          title: '全量路网（约 9 万段，加载较慢），开启后自动切到全城',
-        })
-      } else if (!roadsRowAdded) {
-        roadsRowAdded = true
-        // 这一行的计数/加载态始终跟随当前 extent 的“适宜性路网”变体，
-        // 与单独的“全量路网”开关解耦（否则开全量后两行都显示 90,193）
-        const suitabilityId = state.extent === 'central' ? 'roads_central' : 'roads_arterial'
-        const suitabilityDef = current.layers.find((layer) => layer.id === suitabilityId)
-        push(def.group, {
-          id: 'roads',
-          label: '适宜性路网',
-          count: suitabilityDef?.count ?? def.count,
-          enabled: roadSuitabilityEnabled.value,
-          loading: !!state.layerLoading[suitabilityId],
-          style: 'score',
-          title: '按慢跑适宜性分段着色；数据随「片区 / 全城」自动切换',
-        })
-      }
+      push(def.group, {
+        id: 'roads',
+        label: '适宜性路网',
+        count: def.count,
+        enabled: roadSuitabilityEnabled.value,
+        loading: !!state.layerLoading[def.id] || state.roadsDetailLoading,
+        style: 'score',
+        title: '低缩放显示全市概览路网，放大后按当前视口自动加载细粒度评分路段',
+      })
       continue
     }
     push(def.group, {
@@ -114,7 +89,8 @@ const groups = computed<LayerGroup[]>(() => {
 const countText = computed(() => {
   const summary = state.manifest?.summary
   if (!summary) return '正在读取图层清单…'
-  return `${summary.spatial_files} 个空间文件 · ${summary.layers} 个图层`
+  const roadMode = state.roadsDetailed ? '视口细粒度路网' : '全市概览路网'
+  return `${summary.layers} 个图层 · ${roadMode}`
 })
 
 function fmtCount(n: number): string {
@@ -141,56 +117,42 @@ function swatchStyle(style: LayerStyle): Record<string, string> {
     </div>
     <div class="layers-count">{{ countText }}</div>
 
-    <div class="extent" role="group" aria-label="地图范围">
-      <button
-        type="button"
-        class="extent-btn"
-        :class="{ on: state.extent === 'central' }"
-        data-extent="central"
-        :aria-pressed="state.extent === 'central'"
-        @click="setExtent('central')"
-      >
-        片区
-      </button>
-      <button
-        type="button"
-        class="extent-btn"
-        :class="{ on: state.extent === 'city' }"
-        data-extent="city"
-        :aria-pressed="state.extent === 'city'"
-        @click="setExtent('city')"
-      >
-        全城
-      </button>
-    </div>
-
     <div v-if="!manifest && !errorText" class="layers-loading">正在读取图层清单…</div>
     <div v-else-if="errorText" class="layers-err">{{ errorText }}</div>
     <div v-else v-show="expanded" class="layers-body">
       <div v-for="group in groups" :key="group.label" class="layer-group">
         <div class="group-name">{{ group.label }}</div>
-        <div
-          v-for="row in group.rows"
-          :key="row.id"
-          class="layer-row"
-          :data-layer="row.id"
-          :title="row.title"
-        >
-          <button
-            type="button"
-            class="layer-check"
-            role="switch"
-            :aria-checked="row.enabled"
-            :aria-label="row.label"
-            @click="toggleLayer(row.id)"
-          >
-            <span class="knob" aria-hidden="true"></span>
-          </button>
-          <span class="swatch" :style="swatchStyle(row.style)" aria-hidden="true"></span>
-          <span class="layer-name">{{ row.label }}</span>
-          <span v-if="row.loading" class="layer-loading" aria-label="加载中">…</span>
-          <span class="layer-n">{{ fmtCount(row.count) }}</span>
-        </div>
+        <template v-for="row in group.rows" :key="row.id">
+          <div class="layer-row" :data-layer="row.id" :title="row.title">
+            <button
+              type="button"
+              class="layer-check"
+              role="switch"
+              :aria-checked="row.enabled"
+              :aria-label="row.label"
+              @click="toggleLayer(row.id)"
+            >
+              <span class="knob" aria-hidden="true"></span>
+            </button>
+            <span
+              class="swatch"
+              :class="{
+                'swatch-facility': row.style === 'facility',
+                'swatch-toilet': row.style === 'toilet',
+              }"
+              :style="swatchStyle(row.style)"
+              aria-hidden="true"
+            ></span>
+            <span class="layer-name">{{ row.label }}</span>
+            <span v-if="row.loading" class="layer-loading" aria-label="加载中">…</span>
+            <span class="layer-n">{{ fmtCount(row.count) }}</span>
+          </div>
+          <!-- 公厕无障碍子筛选 -->
+          <label v-if="row.id === 'toilets' && row.enabled" class="sub-filter">
+            <input v-model="state.accessibleOnly" type="checkbox" />
+            <span>仅显示无障碍标注</span>
+          </label>
+        </template>
       </div>
     </div>
   </section>
@@ -207,7 +169,6 @@ function swatchStyle(style: LayerStyle): Record<string, string> {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  /* 左主面板 bottom=705，面板从 1000-44 向上最多 248px，保证不遮挡 */
   max-height: 248px;
   overflow: hidden;
 }
@@ -244,28 +205,6 @@ function swatchStyle(style: LayerStyle): Record<string, string> {
   font-size: 10.5px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
-}
-
-.extent {
-  display: flex;
-  gap: 6px;
-}
-
-.extent-btn {
-  flex: 1;
-  padding: 4px 0;
-  border: 1px solid #dfe8e3;
-  background: transparent;
-  color: var(--sub);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.extent-btn.on {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #fff;
-  font-weight: 600;
 }
 
 .layers-loading {
@@ -350,6 +289,30 @@ function swatchStyle(style: LayerStyle): Record<string, string> {
   width: 10px;
   height: 10px;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.swatch-facility {
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9);
+}
+
+.swatch-toilet {
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px #fff, 0 0 0 2px rgba(29, 78, 216, 0.3);
+}
+
+.sub-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0 3px 32px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.sub-filter input {
+  accent-color: #1d4ed8;
 }
 
 .layer-name {

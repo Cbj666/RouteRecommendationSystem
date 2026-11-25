@@ -1,6 +1,6 @@
 import { reactive } from 'vue'
 import { apiMessage, getJson, USE_MOCK } from '../api/client'
-import type { LayerCollection } from '../types'
+import type { PoiInfo } from '../types'
 
 export interface RoadDetail {
   type: 'Feature'
@@ -12,10 +12,11 @@ export const inspection = reactive({
   selected: null as RoadDetail | null,
   loading: false,
   message: '',
-  toilets: null as LayerCollection | null,
-  toiletsEnabled: false,
-  accessible: false,
+  /** 悬浮/点击的设施点（运动场馆 / 公共厕所） */
+  hoveredPoi: null as PoiInfo | null,
+  selectedPoi: null as PoiInfo | null,
 })
+
 let controller: AbortController | null = null
 
 export async function inspectRoad(lng: number, lat: number): Promise<void> {
@@ -28,27 +29,40 @@ export async function inspectRoad(lng: number, lat: number): Promise<void> {
   try {
     const delta = 0.001
     const query = new URLSearchParams({
-      min_lng: String(lng - delta), max_lng: String(lng + delta),
-      min_lat: String(lat - delta), max_lat: String(lat + delta),
-      detail: 'full', limit: '2000',
+      min_lng: String(lng - delta),
+      max_lng: String(lng + delta),
+      min_lat: String(lat - delta),
+      max_lat: String(lat + delta),
+      detail: 'full',
+      limit: '2000',
     })
     const collection = USE_MOCK
-      ? (await import('../mocks/segments.json')).default as unknown as { features: RoadDetail[] }
+      ? ((await import('../mocks/segments.json')).default as unknown as { features: RoadDetail[] })
       : await getJson<{ features: RoadDetail[] }>('/api/segments?' + query, signal)
     if (signal.aborted) return
     let best: RoadDetail | null = null
     let nearest = 40 * 40
-    const metersX = 111320 * Math.cos(lat * Math.PI / 180)
+    const metersX = 111320 * Math.cos((lat * Math.PI) / 180)
     for (const road of collection.features) {
       if (road.geometry.type !== 'LineString') continue
       const coordinates = road.geometry.coordinates
       for (let i = 1; i < coordinates.length; i++) {
-        const [ax, ay] = [(coordinates[i - 1][0] - lng) * metersX, (coordinates[i - 1][1] - lat) * 111320]
-        const [bx, by] = [(coordinates[i][0] - lng) * metersX, (coordinates[i][1] - lat) * 111320]
-        const dx = bx - ax, dy = by - ay
+        const [ax, ay] = [
+          (coordinates[i - 1][0] - lng) * metersX,
+          (coordinates[i - 1][1] - lat) * 111320,
+        ]
+        const [bx, by] = [
+          (coordinates[i][0] - lng) * metersX,
+          (coordinates[i][1] - lat) * 111320,
+        ]
+        const dx = bx - ax
+        const dy = by - ay
         const t = Math.max(0, Math.min(1, -(ax * dx + ay * dy) / (dx * dx + dy * dy || 1)))
         const distance = (ax + t * dx) ** 2 + (ay + t * dy) ** 2
-        if (distance < nearest) { best = road; nearest = distance }
+        if (distance < nearest) {
+          best = road
+          nearest = distance
+        }
       }
     }
     inspection.selected = best

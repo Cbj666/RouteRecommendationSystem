@@ -45,16 +45,17 @@ class AmapDailyQuotaError(AmapError):
 
 
 def load_key() -> str:
-    for name in (".env", ".env.txt"):
-        path = ROOT / name
-        if not path.exists():
-            continue
-        for line in path.read_text(encoding="utf-8-sig").splitlines():
-            if "=" in line:
-                key, value = line.split("=", 1)
-                if key.strip() in ("GAODE_KEY", "AMAP_KEY", "GAODE_WEB_KEY"):
-                    return value.strip()
-    raise RuntimeError("未找到 GAODE_KEY")
+    """高德 Web 服务 Key：环境变量优先，其次项目根 .env（见 app/secrets.py）。"""
+    if str(Path(__file__).resolve().parents[1]) not in sys.path:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # backend/ for `app`
+    from app.secrets import require as require_secret
+
+    return require_secret(
+        "AMAP_WEB_KEY",
+        "GAODE_KEY",
+        "AMAP_KEY",
+        hint="https://lbs.amap.com/ 控制台 → 应用管理 → Web 服务 Key",
+    )
 
 
 class AmapClient:

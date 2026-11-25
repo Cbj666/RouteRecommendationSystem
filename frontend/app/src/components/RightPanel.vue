@@ -14,6 +14,7 @@ import {
   fmtPercent,
   fmtScore,
   fmtSlope,
+  haversineMeters,
   isClosed,
   loopBadge,
   parseSub,
@@ -23,14 +24,47 @@ const loop = activeLoop
 const props = computed(() => loop.value?.properties ?? null)
 const sub = computed(() => parseSub(props.value?.sub))
 
+const isOneway = computed(() => state.mode === 'oneway')
+
 const heading = computed(() => {
   if (!props.value) return ''
-  const mode = state.mode === 'oneway' ? '单行线' : '环线'
+  if (isOneway.value) return '单行线 · A → B'
   const back = isClosed(loop.value?.geometry.coordinates) ? '　回到起点' : '　A → B'
-  return `${mode} · 第 ${state.activeIndex + 1} 条${back}`
+  return `环线 · 第 ${state.activeIndex + 1} 条${back}`
 })
 
 const badge = computed(() => (props.value ? loopBadge(props.value.score) : ''))
+
+const endpoints = computed(() => {
+  const p = props.value
+  const coords = loop.value?.geometry.coordinates
+  const startLng =
+    p?.start_lng ?? state.loops?.origin?.snapped_lng ?? coords?.[0]?.[0] ?? state.onewayA?.lng
+  const startLat =
+    p?.start_lat ?? state.loops?.origin?.snapped_lat ?? coords?.[0]?.[1] ?? state.onewayA?.lat
+  const endLng =
+    p?.end_lng ??
+    state.loops?.destination?.snapped_lng ??
+    coords?.[coords.length - 1]?.[0] ??
+    state.onewayB?.lng
+  const endLat =
+    p?.end_lat ??
+    state.loops?.destination?.snapped_lat ??
+    coords?.[coords.length - 1]?.[1] ??
+    state.onewayB?.lat
+
+  if (startLng == null || startLat == null || endLng == null || endLat == null) {
+    return null
+  }
+  const straightM = haversineMeters(startLng, startLat, endLng, endLat)
+  const detour = p && straightM >= 1 ? p.length_m / straightM : null
+  return {
+    startText: `${startLng.toFixed(4)}, ${startLat.toFixed(4)}`,
+    endText: `${endLng.toFixed(4)}, ${endLat.toFixed(4)}`,
+    straightM,
+    detour,
+  }
+})
 </script>
 
 <template>
@@ -38,7 +72,7 @@ const badge = computed(() => (props.value ? loopBadge(props.value.score) : ''))
     <template v-if="props">
       <div class="rhead">
         <div class="rt">{{ heading }}</div>
-        <div v-if="loopCount > 1" class="cand">
+        <div v-if="!isOneway && loopCount > 1" class="cand">
           <button class="cbtn" aria-label="上一条环线" title="上一条（←）" @click="prevLoop">
             ‹
           </button>
@@ -54,9 +88,41 @@ const badge = computed(() => (props.value ? loopBadge(props.value.score) : ''))
         <i>/ 100</i>
         <span class="badge">{{ badge }}</span>
       </div>
-      <p class="note">路线偏好匹配分</p>
+      <p class="subnote">路线偏好匹配分</p>
 
-      <div class="grid2">
+      <!-- F2 单行线：展示实际起终点 + 偏差温和提示（非报错） -->
+      <template v-if="isOneway">
+        <div v-if="endpoints" class="ab-summary">
+          <div>
+            <span class="ab-tag a">A</span>
+            <span class="num">{{ endpoints.startText }}</span>
+          </div>
+          <div>
+            <span class="ab-tag b">B</span>
+            <span class="num">{{ endpoints.endText }}</span>
+          </div>
+        </div>
+        <div v-if="state.routeNotice" class="route-notice" role="status">
+          {{ state.routeNotice }}
+        </div>
+        <div class="grid2">
+          <div class="cell"><u>路线长度</u><b class="num">{{ fmtKm(props.length_m) }}</b></div>
+          <div class="cell">
+            <u>直线距离</u>
+            <b class="num">{{ endpoints ? fmtKm(endpoints.straightM) : '—' }}</b>
+          </div>
+          <div class="cell">
+            <u>绕行系数</u>
+            <b class="num">{{ endpoints?.detour ? `${endpoints.detour.toFixed(2)}×` : '—' }}</b>
+          </div>
+          <div class="cell"><u>预计用时</u><b class="num">{{ fmtMinutes(props.minutes) }}</b></div>
+          <div class="cell"><u>树冠覆盖</u><b class="num">{{ fmtPercent(props.tree_share) }}</b></div>
+          <div class="cell"><u>平均坡度</u><b class="num">{{ fmtSlope(props.slope_mean_pct) }}</b></div>
+        </div>
+      </template>
+
+      <!-- 环线模式指标 -->
+      <div v-else class="grid2">
         <div class="cell"><u>距离</u><b class="num">{{ fmtKm(props.length_m) }}</b></div>
         <div class="cell"><u>预计用时</u><b class="num">{{ fmtMinutes(props.minutes) }}</b></div>
         <div class="cell"><u>树冠覆盖</u><b class="num">{{ fmtPercent(props.tree_share) }}</b></div>
@@ -96,8 +162,14 @@ const badge = computed(() => (props.value ? loopBadge(props.value.score) : ''))
     </template>
 
     <template v-else>
-      <div class="rt">路线结果</div>
-      <p class="empty">在左侧选择目标距离与偏好，点「生成路线」查看结果。</p>
+      <div class="rt">{{ isOneway ? '单行线结果' : '路线结果' }}</div>
+      <p class="empty">
+        {{
+          isOneway
+            ? '先点击地图选择起点 A，再点击地图选择终点 B，系统将自动生成 A→B 单行线。'
+            : '在左侧选择目标距离与偏好，点「生成路线」查看结果。'
+        }}
+      </p>
     </template>
   </aside>
 </template>
@@ -108,7 +180,7 @@ const badge = computed(() => (props.value ? loopBadge(props.value.score) : ''))
   right: 24px;
   top: 88px;
   width: 330px;
-  padding: 24px;
+  padding: 22px 24px;
   z-index: 4;
 }
 
@@ -163,7 +235,7 @@ const badge = computed(() => (props.value ? loopBadge(props.value.score) : ''))
 }
 
 .score b {
-  font-size: 54px;
+  font-size: 52px;
   line-height: 0.95;
   color: var(--accent);
   font-weight: 700;
@@ -186,17 +258,70 @@ const badge = computed(() => (props.value ? loopBadge(props.value.score) : ''))
   align-self: center;
 }
 
+.subnote {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.ab-summary {
+  margin-top: 12px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--sub);
+}
+
+.ab-summary > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ab-tag {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  flex: none;
+}
+
+.ab-tag.a {
+  background: #15503c;
+}
+
+.ab-tag.b {
+  background: #c2410c;
+}
+
+.route-notice {
+  margin-top: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--accent);
+  background: var(--accent-weak);
+  border: 1px solid #c9dfd3;
+}
+
 .grid2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1px;
   background: var(--line);
-  margin: 18px 0 0;
+  margin: 14px 0 0;
 }
 
 .cell {
   background: rgba(255, 255, 255, 0.86);
-  padding: 12px 12px 13px;
+  padding: 11px 12px 12px;
 }
 
 .cell u {
@@ -204,16 +329,16 @@ const badge = computed(() => (props.value ? loopBadge(props.value.score) : ''))
   font-size: 11.5px;
   color: var(--muted);
   text-decoration: none;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .cell b {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
 }
 
 .bars {
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 .bar {
@@ -221,7 +346,7 @@ const badge = computed(() => (props.value ? loopBadge(props.value.score) : ''))
   grid-template-columns: 74px 1fr 32px;
   align-items: center;
   gap: 10px;
-  margin-bottom: 11px;
+  margin-bottom: 10px;
   font-size: 12.5px;
   color: var(--sub);
 }
@@ -249,12 +374,12 @@ const badge = computed(() => (props.value ? loopBadge(props.value.score) : ''))
 }
 
 .note {
-  margin-top: 16px;
+  margin-top: 14px;
   font-size: 11.5px;
   color: var(--muted);
   line-height: 1.7;
   border-top: 1px solid var(--line);
-  padding-top: 12px;
+  padding-top: 10px;
 }
 
 .empty {

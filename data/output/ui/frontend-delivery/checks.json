@@ -1,0 +1,156 @@
+{
+  "real": true,
+  "checks": [
+    {
+      "name": "地图与数据图层就绪",
+      "ok": true
+    },
+    {
+      "name": "地图视图隐藏路线条件",
+      "ok": true
+    },
+    {
+      "name": "关闭水体",
+      "ok": true
+    },
+    {
+      "name": "恢复水体",
+      "ok": true
+    },
+    {
+      "name": "公共厕所加载",
+      "ok": true
+    },
+    {
+      "name": "无障碍筛选",
+      "ok": true
+    },
+    {
+      "name": "路段六维和高亮",
+      "ok": true
+    },
+    {
+      "name": "页签 1 高亮",
+      "ok": true
+    },
+    {
+      "name": "环线生成与地图路线",
+      "ok": true
+    },
+    {
+      "name": "切换候选",
+      "ok": true
+    },
+    {
+      "name": "键盘候选切换",
+      "ok": true
+    },
+    {
+      "name": "单行线与终点",
+      "ok": true
+    },
+    {
+      "name": "恢复环线",
+      "ok": true
+    },
+    {
+      "name": "42 km 路线",
+      "ok": true
+    },
+    {
+      "name": "恢复 5 km",
+      "ok": true
+    },
+    {
+      "name": "页签 2 高亮",
+      "ok": true
+    },
+    {
+      "name": "顶部导航保持可见",
+      "ok": true
+    },
+    {
+      "name": "对比可提交",
+      "ok": true
+    },
+    {
+      "name": "双起点真实路线与差值",
+      "ok": true
+    },
+    {
+      "name": "页签 0 高亮",
+      "ok": true
+    },
+    {
+      "name": "页签 2 高亮",
+      "ok": true
+    },
+    {
+      "name": "返回后对比结果保留",
+      "ok": true
+    },
+    {
+      "name": "修改条件清除旧结果",
+      "ok": true
+    },
+    {
+      "name": "修改偏好后可重新比较",
+      "ok": true
+    },
+    {
+      "name": "地图设置 B 起点",
+      "ok": true
+    },
+    {
+      "name": "单侧失败保留另一侧",
+      "ok": true
+    },
+    {
+      "name": "修正起点可提交",
+      "ok": true
+    },
+    {
+      "name": "修正后恢复双侧",
+      "ok": true
+    },
+    {
+      "name": "页签 1 高亮",
+      "ok": true
+    },
+    {
+      "name": "地点搜索真实结果",
+      "ok": true
+    },
+    {
+      "name": "搜索结果编号标记上地图",
+      "ok": true
+    },
+    {
+      "name": "选中地点生成路线",
+      "ok": true
+    },
+    {
+      "name": "390 px 对比无横向溢出",
+      "ok": true
+    },
+    {
+      "name": "页签 1 高亮",
+      "ok": true
+    },
+    {
+      "name": "窄屏推荐结果可见",
+      "ok": true
+    },
+    {
+      "name": "320 px 无横向溢出",
+      "ok": true
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 422 (Unprocessable Content)"
+  ],
+  "failedRequests": [
+    "net::ERR_ABORTED"
+  ]
+}

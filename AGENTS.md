@@ -32,6 +32,15 @@ $env:PYTHONUNBUFFERED='1'
 
 脚本可在任意工作目录运行（路径基于 `__file__`）。
 
+**密钥**：高德/百度/天地图/AQICN 的 Key 只从**环境变量**或项目根 `.env` 读取
+（环境变量优先），统一入口 `backend/app/secrets.py`。开工前先自检：
+
+```powershell
+.\.venv\Scripts\python.exe -m app.secrets check   # 只输出掩码，缺任何一个退出码为 1
+```
+
+细则（含 Agent 禁令、泄露处置、错误码对照）见 `docs/过程/密钥与安全.md`。
+
 ```powershell
 # 数据（一次性；raw 不入库）
 .\.venv\Scripts\python.exe backend\scripts\fetch_dem.py            # SRTM 9 幅瓦片
@@ -58,7 +67,7 @@ $env:PYTHONUNBUFFERED='1'
 | 路径 | 作用 | 入库 |
 |---|---|---|
 | `backend/app/running.py` | **跑步图 + 两种路线生成（当前核心）** | ✅ |
-| `backend/app/api.py` | FastAPI 11 路由（图层 + 目录 + 元信息 + 厕所 + 环线/单行线） | ✅ |
+| `backend/app/api.py` | FastAPI 12 路由（图层 + 目录 + 元信息 + 厕所 + 地点搜索 + 环线/单行线） | ✅ |
 | `backend/app/datasets.py` | 四个图层（路段/水绿/场馆/厕所）的内存缓存、bbox 过滤、GeoJSON 序列化 | ✅ |
 | `backend/app/config.py` | 参数（步速、车速、权重）：唯一"魔法数字"来源 | ✅ |
 | `backend/app/paths.py` | 全项目路径定义 | ✅ |
@@ -210,6 +219,10 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
     `GeoSeries(shapely.points(...))` 用默认 RangeIndex，而 `am` 是过滤后的原索引，
     构造 GeoDataFrame 时索引对不齐 → 828/4,081 个场馆几何变空。
     正确写法：`am.reset_index(drop=True)` + `np.asarray(geom)` + 选择列时带 `"geometry"`。
+11. **密钥四处抄**（2026-11 统一）：原先 `amap.py` 解析 `.env`、两个 fetch 脚本各写一份
+    正则、`baidu_place.py` 还认 `AK.txt`，同一个 Key 三套优先级。现在一律用
+    `backend/app/secrets.py` 的 `require()`（环境变量 > `.env` > `.env.txt`）。
+    **不要**再在脚本里 `re.search(r"GAODE_KEY\s*=\s*(\S+)")`，也不要把 Key 拼进日志或异常消息。
 
 ---
 
@@ -231,7 +244,7 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 | 文档 | 读它的场景 |
 |---|---|
 | `docs/项目交接说明.md` | 全项目到哪一步了 |
-| `docs/接口契约.md` | 前后端唯一依据（当前 v1.2：9 路由 + 前端 M3 静态图层资产） |
+| `docs/接口契约.md` | 前后端唯一依据（当前 v1.3：12 路由，含地点搜索） |
 | `docs/项目说明书.md` | 答辩口径、指标体系、边界 |
 | `docs/过程/开发进展-慢跑适宜性与环线.md` | 实现细节、踩过的坑、结果 |
 | `docs/数据/数据字典-跑步数据集.md` | 评分/环线字段 |
@@ -239,6 +252,7 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 | `docs/数据/数据现状与增补建议.md` | 现用数据审计、失效维度、可增补数据与改造公式 |
 | `docs/literature/参考文献与算法依据.md` | 五维/环线的文献锚点，写报告与答辩 PPT 前读 |
 | `docs/过程/design-guidelines.md` | 做前端页面前 |
+| `docs/过程/密钥与安全.md` | 要用高德/百度 Key、或怀疑 Key 泄露时 |
 | `docs/分工卡片.md` | 组内分工、交付物与剩余工作 |
 | `docs/汇报/答辩稿.md`、`docs/汇报/讲稿.md` | 排练与答辩 |
 | `docs/literature/参考文献.md` | 已核对过的引用清单与「不能说什么」 |
@@ -246,6 +260,6 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 
 **改结构或改评分口径时，同步更新本文件与 `docs/项目交接说明.md`。**
 
-## 前端交付补充（2026-11-23）
+## 前端交付补充（2026-11-24）
 
-路线统一用 `/api/routes`，厕所用 `/api/toilets`，路段详情由小 bbox 的 `/api/segments?detail=full` 查询。保留静态地图兜底。真实联调用 `VITE_USE_MOCK=0` 与 `UI_REAL=1 node scripts/ui-smoke.mjs`。mock 对比只使用两个预设的 5 km 示例，BMapGL 与在线地址搜索尚未接入。
+路线统一用 `/api/routes`，厕所用 `/api/toilets`，在线地点搜索用 `/api/places/search`（高德 Key 只在后端，返回 WGS84），路段详情由小 bbox 的 `/api/segments?detail=full` 查询。保留静态地图兜底。真实联调用 `VITE_USE_MOCK=0` 与 `UI_REAL=1 node scripts/ui-smoke.mjs`。mock 对比只使用两个预设的 5 km 示例；BMapGL 底图仍未接入，在线搜索在 mock 模式下退化为 4 条内置地点。
