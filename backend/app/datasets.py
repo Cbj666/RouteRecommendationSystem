@@ -41,12 +41,9 @@ HOTSPOT_JSON = paths.OUTPUT / "running" / "v1" / "hotspot" / "grid.json"
 # 未显式传入 bbox 时使用的默认路段视口，与原型展示范围一致
 DEFAULT_SEGMENT_BBOX = (114.305, 30.508, 114.405, 30.562)
 
-# 路段接口在 detail=basic 时返回的常用评分字段
-BASIC_SEGMENT_FIELDS = [
-    "osm_id", "fclass", "name", "length_m", "score", "grade",
-    "s_safety", "s_green", "s_slope", "s_cross", "s_fac", "s_air",
-    "no2_ugm3", "pm25_ugm3",
-]
+# 视口渲染（GET /api/segments?detail=basic）只回这三个字段：
+# 着色只需要 score / grade，osm_id 便于排查；其余指标走 detail=full 的详情接口。
+BASIC_SEGMENT_FIELDS = ["osm_id", "score", "grade"]
 
 # 设施点接口返回的字段
 POI_FIELDS = [

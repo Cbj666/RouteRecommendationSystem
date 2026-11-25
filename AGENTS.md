@@ -72,6 +72,7 @@ $env:PYTHONUNBUFFERED='1'
 | `backend/app/running.py` | **跑步图 + 两种路线生成（当前核心）** | ✅ |
 | `backend/app/api.py` | FastAPI 13 路由（图层 + 目录 + 元信息 + 厕所 + 地点搜索 + 环线/单行线 + 热点网格） | ✅ |
 | `backend/app/datasets.py` | 四个图层（路段/水绿/场馆/厕所）的内存缓存、bbox 过滤、GeoJSON 序列化 | ✅ |
+| `backend/app/segment_tiles.py` | `/api/segments?detail=basic` 的预切网格索引（0.01°）+ 每段预序列化 + LRU（含 gzip 字节）+ ETag | ✅ |
 | `backend/app/config.py` | 参数（步速、车速、权重）：唯一"魔法数字"来源 | ✅ |
 | `backend/app/paths.py` | 全项目路径定义 | ✅ |
 | `backend/app/graph.py` | 多模式交通图（前版，接驳用） | ✅ |
@@ -163,6 +164,14 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
   情况下路线集合会替换一条**（同区间、分数略低）。2026-11-24 全档位对比：31/31
   组 3/5/10 km 输出逐字节一致。
 
+**视口路段（2026-11-25 改）**：`GET /api/segments?detail=basic` 不再每次走 geopandas
+（`clip` + `to_json`），改由 `app/segment_tiles.py` 的 0.01° 网格索引直接拼 JSON 片段，
+响应体连同 gzip 字节缓存进 LRU（96 条），并带 `ETag` / 304。实测同一 bbox 第二次请求
+12–27 ms（此前 56–642 ms），传输体积约为原来的 1/7。
+`detail=basic` 因此只剩 `osm_id/score/grade` 三个字段——需要 `fclass`/`name`/六维/空气时
+必须用 `detail=full` 或 `/api/segments/{osm_id}`（`full` 仍走旧路径，行为不变）。
+索引按**外包框相交**筛选，比几何相交多极少数贴边段（≤0.2%，画在视野外）。
+
 ---
 
 ## 6. 评分口径
@@ -251,7 +260,7 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 | 文档 | 读它的场景 |
 |---|---|
 | `docs/项目交接说明.md` | 全项目到哪一步了 |
-| `docs/接口契约.md` | 前后端唯一依据（当前 v1.4：13 路由，含地点搜索与热点网格） |
+| `docs/接口契约.md` | 前后端唯一依据（当前 v1.5：13 路由，含地点搜索、热点网格与视口路段快速通道） |
 | `docs/项目说明书.md` | 答辩口径、指标体系、边界 |
 | `docs/过程/开发进展-慢跑适宜性与环线.md` | 实现细节、踩过的坑、结果 |
 | `docs/数据/数据字典-跑步数据集.md` | 评分/环线字段 |

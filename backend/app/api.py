@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import threading
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -48,7 +49,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from shapely.geometry import mapping
 
-from . import amap, datasets, paths, running
+from . import amap, datasets, paths, running, segment_tiles
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,9 @@ GEOJSON_RESPONSE = {
         "content": {"application/geo+json": {}},
     }
 }
+
+# 视口路段的缓存策略：数据是离线产物，10 分钟内浏览器可直接复用
+SEGMENTS_CACHE = "public, max-age=600"
 
 # 路线接口的边界参数。42 km 对应需求 NFR-04（1–42 km）。
 MIN_TARGET_M = 1000.0
@@ -159,6 +163,9 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001 - 预热失败不能阻塞服务启动
         print(f"[api] WARNING water union unavailable: {exc}", flush=True)
 
+    # 后台预建路段瓦片索引（约 2 s），避免首个视口请求替它买单
+    threading.Thread(target=_warm_segment_tiles, name="segment-tiles", daemon=True).start()
+
     yield
     STATE.clear()
 
@@ -205,6 +212,19 @@ def root() -> RedirectResponse:
 def favicon() -> Response:
     """响应浏览器自动请求的站点图标，避免日志出现无意义的 404。"""
     return Response(status_code=204)
+
+
+def _warm_segment_tiles() -> None:
+    """后台构建路段瓦片索引；失败只记日志，不影响请求（请求时会重试）。"""
+    try:
+        started = time.time()
+        info = segment_tiles.stats()
+        print(
+            f"[api] segment tiles ready in {time.time() - started:.1f}s: {info}",
+            flush=True,
+        )
+    except Exception as exc:  # noqa: BLE001 - 预热失败不能阻塞服务
+        print(f"[api] WARNING segment tiles unavailable: {exc}", flush=True)
 
 
 def _graph() -> running.RunGraph:
@@ -675,6 +695,7 @@ def health() -> dict:
     summary="bbox 内的评分路段",
 )
 def segments(
+    request: Request,
     min_lng: float | None = Query(None, description="bbox 西边界；不传则用默认视口"),
     min_lat: float | None = Query(None, description="bbox 南边界；不传则用默认视口"),
     max_lng: float | None = Query(None, description="bbox 东边界；不传则用默认视口"),
@@ -682,17 +703,49 @@ def segments(
     limit: int = Query(20000, ge=1, le=60000, description="最多返回要素数"),
     detail: Literal["basic", "full"] = Query(
         "basic",
-        description="basic=14 个评分字段；full=全部 26 个属性（inf 已转 null）",
+        description="basic=osm_id/score/grade 三个字段（视口渲染用）；full=全部 26 个属性（inf 已转 null）",
     ),
 ) -> Response:
     """返回 bbox 内的路段；不传 bbox 时返回原型视口（约 8,000 段）。
 
     先按 bbox 过滤再 ``head(limit)``；``truncated=true`` 表示还有更多。
-    ``detail=full`` 会带坡度、树冠、距离、空气等原始指标。
+    ``detail=basic`` 走预切瓦片索引（毫秒级、带 ETag）；``detail=full``
+    会带坡度、树冠、距离、空气等原始指标，供路段详情探查使用。
     """
     bbox = _bbox(
         min_lng, min_lat, max_lng, max_lat, default=datasets.DEFAULT_SEGMENT_BBOX
     )
+    if detail == "basic" and bbox is not None:
+        tag = segment_tiles.etag(bbox, limit)
+        if request.headers.get("if-none-match") == tag:
+            return Response(
+                status_code=304,
+                headers={"Cache-Control": SEGMENTS_CACHE, "ETag": tag},
+            )
+        body, gz = segment_tiles.basic_payload(bbox, limit)
+        accepts_gzip = "gzip" in (request.headers.get("accept-encoding") or "").lower()
+        if accepts_gzip:
+            # 压缩字节已随响应体一起缓存，绕开 GZipMiddleware 的逐次压缩。
+            return Response(
+                content=gz,
+                media_type="application/geo+json",
+                headers={
+                    "Cache-Control": SEGMENTS_CACHE,
+                    "ETag": tag,
+                    "Content-Encoding": "gzip",
+                    "Vary": "Accept-Encoding",
+                },
+            )
+        return Response(
+            content=body,
+            media_type="application/geo+json",
+            headers={
+                "Cache-Control": SEGMENTS_CACHE,
+                "ETag": tag,
+                "Vary": "Accept-Encoding",
+            },
+        )
+
     gdf = datasets.segments()
     subset = datasets.clip(gdf, bbox)
     total = len(subset)
