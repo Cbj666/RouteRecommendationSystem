@@ -231,6 +231,53 @@ try {
   )
   await capture('loop-zoomed')
 
+  // 拖动：合成器平移（CSS transform）松手后必须落成新 viewBox，且不残留过扫描尺寸
+  const svgBox = () => evalJs("document.querySelector('.map-frame svg').getAttribute('viewBox')")
+  const boxBefore = await svgBox()
+  await send('Input.dispatchMouseEvent', {
+    type: 'mousePressed',
+    x: 800,
+    y: 500,
+    button: 'left',
+    buttons: 1,
+    clickCount: 1,
+  })
+  for (let i = 1; i <= 8; i += 1) {
+    await send('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: 800 + i * 9,
+      y: 500 + i * 6,
+      button: 'left',
+      buttons: 1,
+    })
+    await sleep(16)
+  }
+  await send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    x: 872,
+    y: 548,
+    button: 'left',
+    buttons: 0,
+    clickCount: 1,
+  })
+  await sleep(500)
+  const dragOk =
+    (await svgBox()) !== boxBefore &&
+    (await evalJs("document.querySelector('.map-frame svg').style.transform")) === '' &&
+    (await evalJs("document.querySelector('.map-frame svg').style.width")) === ''
+  checks.push({ name: '拖动平移落地：viewBox 变化且过扫描已清空', ok: dragOk })
+  console.log((dragOk ? 'PASS  ' : 'FAIL  ') + '拖动平移落地：viewBox 变化且过扫描已清空')
+  if (!dragOk) throw new Error('拖动平移落地失败')
+  // 拖动会把 suppressClick 置真（真实浏览器此时也会补一个 click），
+  // 下面用合成 click 继续测点选，所以先补一次「按下即抬起」把状态复位。
+  await evalJs(`(()=>{
+    const h = document.querySelector('.map-host');
+    const base = { bubbles: true, cancelable: true, pointerId: 99, pointerType: 'mouse', clientX: 6, clientY: 6, button: 0 };
+    h.dispatchEvent(new PointerEvent('pointerdown', { ...base, buttons: 1 }));
+    h.dispatchEvent(new PointerEvent('pointerup', { ...base, buttons: 0 }));
+  })()`)
+  await sleep(120)
+
   await click('.cand .cbtn:last-child')
   await check('切换候选环线', "document.querySelector('.cidx').textContent.startsWith('2/')")
   await evalJs("document.body.dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowLeft',bubbles:true}))")

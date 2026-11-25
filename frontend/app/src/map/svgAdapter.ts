@@ -64,6 +64,9 @@ interface RenderedCluster {
   count: number
 }
 
+/** 拖动期「合成器平移」的过扫描比例：四周各多画 30%，可平移余量 = 0.3×视口宽 */
+const PAN_PAD = 0.3
+
 /**
  * SVG 地图适配器（F1 统一单图 + F4 运动场馆/公厕分符号与整城聚合）。
  */
@@ -79,6 +82,8 @@ export class SvgAdapter implements MapAdapter {
   private vpX = 0
   private vpY = 0
   private zoom = 1
+  private panActive = false
+  private panPad = 0
 
   private loop: LoopFeature | null = null
   private origin: MapOrigin | null = null
@@ -154,6 +159,68 @@ export class SvgAdapter implements MapAdapter {
       this.renderMarker()
       if (this.places.length) this.renderPlaces()
     }
+  }
+
+  /**
+   * 进入「合成器平移」：把 SVG 放大 (1+2p) 并向外偏移同样比例，viewBox 同步加边，
+   * 屏幕比例不变，但四周多出一圈已绘制内容。拖动时用 CSS transform 搬这块位图，
+   * 高 DPI 下不再每帧重绘整个 SVG。
+   * @returns 每一侧可平移的余量（CSS px）；0 表示当前不可用（调用方回退到改 viewBox）。
+   */
+  beginPan(): number {
+    const svg = this.svg
+    const host = this.host
+    if (!svg || !host || this.panActive) return 0
+    const rect = host.getBoundingClientRect()
+    if (!rect.width || !rect.height) return 0
+    this.panActive = true
+    this.panPad = PAN_PAD
+    const pct = PAN_PAD * 100
+    svg.style.width = `${100 + 2 * pct}%`
+    svg.style.height = `${100 + 2 * pct}%`
+    svg.style.marginLeft = `${-pct}%`
+    svg.style.marginTop = `${-pct}%`
+    svg.style.willChange = 'transform'
+    this.applyPanBox()
+    return PAN_PAD * rect.width
+  }
+
+  private applyPanBox(): void {
+    const svg = this.svg
+    if (!svg) return
+    const w = MAP_W / this.zoom
+    const h = MAP_H / this.zoom
+    const p = this.panPad
+    svg.setAttribute(
+      'viewBox',
+      `${this.vpX - p * w} ${this.vpY - p * h} ${w * (1 + 2 * p)} ${h * (1 + 2 * p)}`,
+    )
+  }
+
+  /** 平移态中按 CSS px 位移；由合成器搬运，不触发 SVG 重绘 */
+  panBy(dx: number, dy: number): void {
+    const svg = this.svg
+    if (!svg || !this.panActive) return
+    svg.style.transform = `translate3d(${dx.toFixed(2)}px, ${dy.toFixed(2)}px, 0)`
+  }
+
+  /** 退出平移态并把 viewBox 落到给定视口（先清 transform，再设 viewBox，避免闪一帧偏移） */
+  endPan(x: number, y: number, zoom: number): void {
+    const svg = this.svg
+    this.panActive = false
+    if (svg) {
+      svg.style.transform = ''
+      svg.style.width = ''
+      svg.style.height = ''
+      svg.style.marginLeft = ''
+      svg.style.marginTop = ''
+      svg.style.willChange = ''
+    }
+    this.setViewport(x, y, zoom)
+  }
+
+  get panning(): boolean {
+    return this.panActive
   }
 
   /** 平移/缩放结束后刷新屏幕等比点符号与整城聚合 */

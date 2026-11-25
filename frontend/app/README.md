@@ -103,7 +103,7 @@ docs/数据图层清单.md      数据检测记录：16 个空间文件 / 13 个
 - 在线搜索通过 `/api/places/search` 调高德（Key 只在后端，坐标转 WGS84），结果以编号标记同步到地图；空关键词仍显示两个预设地点。地图为 SVG 静态底图，前端不加载任何第三方地图 JS、不持有地图开发者 Key。
 - 热点页签读 `/api/hotspot`（全城 1,853 格 / 133 热点，2 km 网格、评分按路段长度加权，v2 分档 35/50/65/80）；mock 模式用 `src/mocks/hotspot.ts` 的 500 格都市区示例。字段与重建步骤见 `docs/过程/热点地图前端实现与交接.md`。
 
-2026-11-25 两页签 + 全城热点改造验收通过：`vue-tsc` 与 `npm run build` 成功，真后端 32/32、mock 35/35（页签顺序、全城 2 km 网格 1,853 格、榜单/详情联动、环线自动生成、地点搜索、390/320 px）。同日更早的合并验收（fixSearch 地点搜索 × main 视口性能 × PR #6 热点地图）：`npm run build` 成功，真后端 38/38、mock 43/43（含环线/单行线两种模式的地点搜索选点、编号标记与选中生成路线，热点页签与 390 px 热点页；起点对比页已在 main 移除，故不再有对比用例）。2026-11-25 早先记录：真后端 32/32、mock 37/37；2026-11-24 记录：真后端 36/36；2026-11-23 记录：真后端 32/32、mock 37/37。检查记录在 `data/output/ui/frontend-delivery/checks.json`（本次）与 `data/output/ui/delivery-real/checks.json`、`delivery-mock/checks.json`。
+2026-11-25 拖动/缩放与视口路网优化后复验：`vue-tsc` 与 `npm run build` 成功，真后端 33/33、mock 36/36（新增拖动用例：合成器平移松手后 viewBox 已落地、过扫描尺寸清空）。2026-11-25 两页签 + 全城热点改造验收通过：真后端 32/32、mock 35/35（页签顺序、全城 2 km 网格 1,853 格、榜单/详情联动、环线自动生成、地点搜索、390/320 px）。同日更早的合并验收（fixSearch 地点搜索 × main 视口性能 × PR #6 热点地图）：`npm run build` 成功，真后端 38/38、mock 43/43（含环线/单行线两种模式的地点搜索选点、编号标记与选中生成路线，热点页签与 390 px 热点页；起点对比页已在 main 移除，故不再有对比用例）。2026-11-25 早先记录：真后端 32/32、mock 37/37；2026-11-24 记录：真后端 36/36；2026-11-23 记录：真后端 32/32、mock 37/37。检查记录在 `data/output/ui/frontend-delivery/checks.json`（本次）与 `data/output/ui/delivery-real/checks.json`、`delivery-mock/checks.json`。
 
 ## 联调验收
 

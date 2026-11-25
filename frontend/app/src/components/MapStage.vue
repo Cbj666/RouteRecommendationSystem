@@ -46,6 +46,23 @@ const dragging = ref(false)
 const pointers = new Map<number, { x: number; y: number }>()
 let suppressClick = false
 
+/**
+ * 拖动期「合成器平移」状态：拖动中不改 viewBox、不写 viewport.value，
+ * 只给 SVG 加 CSS transform；超出过扫描余量或松手时再落地成真实视口。
+ */
+let panState: {
+  startX: number
+  startY: number
+  baseX: number
+  baseY: number
+  zoom: number
+  /** viewBox 单位 / CSS px */
+  perPx: number
+  /** 每一侧可平移余量（CSS px） */
+  padPx: number
+} | null = null
+let lastDrag = { x: 0, y: 0 }
+
 interface SegmentCacheEntry {
   truncated: boolean
   data: LayerCollection | null
@@ -86,6 +103,7 @@ function updateSelectedPoiPosition(): void {
 }
 
 function updateViewport(x: number, y: number, zoom: number, immediateSymbols = false): void {
+  commitPan()
   const clampedZoom = Math.min(MAX_ZOOM, Math.max(1, zoom))
   const clampedX = Math.min(Math.max(0, x), MAP_W - MAP_W / clampedZoom)
   const clampedY = Math.min(Math.max(0, y), MAP_H - MAP_H / clampedZoom)
@@ -305,6 +323,7 @@ async function syncViewportSegments(): Promise<void> {
 function onWheel(event: WheelEvent): void {
   const anchor = canvasPoint(event.clientX, event.clientY)
   if (!anchor || !event.deltaY) return
+  commitPan()
   inspection.hoveredPoi = null
   zoomAt(event.deltaY < 0 ? 1.25 : 1 / 1.25, anchor)
 }
@@ -312,6 +331,8 @@ function onWheel(event: WheelEvent): void {
 function onPointerDown(event: PointerEvent): void {
   if (event.button !== 0 || pointers.size >= 2) return
   if (pointers.size === 0) suppressClick = false
+  commitPan()
+  panState = null
   if (segmentsTimer !== null) window.clearTimeout(segmentsTimer)
   segmentsTimer = null
   if (symbolTimer !== null) window.clearTimeout(symbolTimer)
@@ -320,9 +341,57 @@ function onPointerDown(event: PointerEvent): void {
   segmentsAbort = null
   state.roadsDetailLoading = false
   pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
-  host.value?.setPointerCapture(event.pointerId)
+  // 合成事件的 pointerId 可能没有对应的活动指针，捕获失败不应打断交互
+  try {
+    host.value?.setPointerCapture(event.pointerId)
+  } catch {
+    /* 忽略：没有活动指针时无法捕获 */
+  }
   gesture = { start: pointerCenter(), view: viewport.value }
   if (pointers.size === 2) dragging.value = suppressClick = true
+}
+
+/** 在给定指针位置开始一段合成器平移 */
+function beginPan(current: { x: number; y: number }): void {
+  const rect = host.value?.getBoundingClientRect()
+  if (!rect || rect.width <= 0) return
+  const padPx = adapter.beginPan()
+  if (padPx <= 0) return
+  panState = {
+    startX: current.x,
+    startY: current.y,
+    baseX: viewport.value.x,
+    baseY: viewport.value.y,
+    zoom: viewport.value.zoom,
+    perPx: MAP_W / rect.width / viewport.value.zoom,
+    padPx,
+  }
+}
+
+/** 把平移位移限制在地图范围内（否则会拖出空白边），返回夹紧后的 CSS px 位移 */
+function clampPan(dx: number, dy: number, pan: NonNullable<typeof panState>): [number, number] {
+  const spanX = MAP_W - MAP_W / pan.zoom
+  const spanY = MAP_H - MAP_H / pan.zoom
+  const minDx = (pan.baseX - spanX) / pan.perPx
+  const maxDx = pan.baseX / pan.perPx
+  const minDy = (pan.baseY - spanY) / pan.perPx
+  const maxDy = pan.baseY / pan.perPx
+  return [
+    Math.min(maxDx, Math.max(minDx, dx)),
+    Math.min(maxDy, Math.max(minDy, dy)),
+  ]
+}
+
+/** 把平移落成真实视口（松手、缩放、切到双指之前调用） */
+function commitPan(): void {
+  if (!panState) return
+  const [dx, dy] = clampPan(lastDrag.x - panState.startX, lastDrag.y - panState.startY, panState)
+  const x = panState.baseX - dx * panState.perPx
+  const y = panState.baseY - dy * panState.perPx
+  const zoom = panState.zoom
+  panState = null
+  adapter.endPan(x, y, zoom)
+  viewport.value = { x, y, zoom }
 }
 
 function onPointerMove(event: PointerEvent): void {
@@ -335,6 +404,39 @@ function onPointerMove(event: PointerEvent): void {
     }
     dragging.value = suppressClick = true
     inspection.hoveredPoi = null
+    lastDrag = { x: current.x, y: current.y }
+
+    // 单指拖动：合成器平移（拖动中零重绘）；双指缩放仍走 updateViewport
+    if (pointers.size === 1) {
+      const rect = host.value?.getBoundingClientRect()
+      if (rect && rect.width > 0) {
+        if (!panState) beginPan(current)
+        if (panState) {
+          const [dx, dy] = clampPan(
+            current.x - panState.startX,
+            current.y - panState.startY,
+            panState,
+          )
+          if (
+            Math.abs(dx) > panState.padPx * 0.7 ||
+            Math.abs(dy) > panState.padPx * 0.7
+          ) {
+            // 超出过扫描余量：先落到已拖到的位置，再向外多画一圈重新锚定
+            const x = panState.baseX - dx * panState.perPx
+            const y = panState.baseY - dy * panState.perPx
+            const zoom = panState.zoom
+            adapter.endPan(x, y, zoom)
+            viewport.value = { x, y, zoom }
+            panState = null
+            beginPan(current)
+          } else {
+            adapter.panBy(dx, dy)
+          }
+          return
+        }
+      }
+    }
+
     const origin = canvasPoint(start.x, start.y)
     const destination = canvasPoint(current.x, current.y)
     if (!origin || !destination) return
@@ -359,6 +461,7 @@ function onPointerMove(event: PointerEvent): void {
 
 function onPointerEnd(event: PointerEvent): void {
   if (!pointers.delete(event.pointerId)) return
+  commitPan()
   gesture = pointers.size ? { start: pointerCenter(), view: viewport.value } : null
   if (!gesture) {
     if (dragging.value) adapter.refreshViewportSymbols()
@@ -665,7 +768,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="map-frame">
+  <div class="map-frame" :class="{ dragging }">
     <div
       ref="host"
       class="map-host"
@@ -821,6 +924,17 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* 拖动期地图走合成器平移（SVG 被放大 160% 后在层内搬运），
+   屏幕坐标系的浮层会跟画面对不上，先藏起来，松手后自动恢复。 */
+.map-frame.dragging .poi-tooltip,
+.map-frame.dragging .poi-popover {
+  display: none;
+}
+
+.map-frame.dragging :deep(.hotspot-overlay) {
+  opacity: 0;
 }
 
 .poi-tooltip {

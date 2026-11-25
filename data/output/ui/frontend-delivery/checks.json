@@ -18,6 +18,10 @@
       "ok": true
     },
     {
+      "name": "拖动平移落地：viewBox 变化且过扫描已清空",
+      "ok": true
+    },
+    {
       "name": "切换候选环线",
       "ok": true
     },
