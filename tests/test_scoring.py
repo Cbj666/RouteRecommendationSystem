@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 SUBS = ["s_safety", "s_green", "s_slope", "s_cross", "s_fac"]
 
@@ -30,16 +31,21 @@ def test_raw_indicators_sane(segments):
 
 def test_known_woodland_has_canopy():
     """武大、磨山这种林地，树冠应显著高于全城均值（回归：拼图错位过）。"""
+    from pathlib import Path
+
     import geopandas as gpd
+    import pyogrio
     from shapely.geometry import Point
 
-    seg = gpd.read_file(
-        "data/processed/running/v1/segments.gpkg",
-        layer="segments",
-        columns=["tree_share"],
-    )
+    path = Path(__file__).resolve().parents[1] / "data" / "processed" / "running" / "v1" / "segments.gpkg"
+    if not path.exists():
+        pytest.skip("segments.gpkg 不存在，先跑 build_running_dataset.py")
+
+    seg = pyogrio.read_dataframe(path, layer="segments")
     city = float(seg["tree_share"].mean())
-    near = seg[seg.distance(Point(114.4210, 30.5450)) < 0.01]   # 磨山
+    # WGS84 下量距离不可靠，按 AGENTS.md 投到 EPSG:32650 再取磨山 1 km 内的路段
+    moshan = gpd.GeoSeries([Point(114.4210, 30.5450)], crs=4326).to_crs(32650).iloc[0]
+    near = seg.to_crs(32650)[lambda df: df.distance(moshan) < 1000]
     assert len(near) > 20
     assert float(near["tree_share"].mean()) > city * 1.8
 
@@ -47,8 +53,9 @@ def test_known_woodland_has_canopy():
 def test_grade_matches_score(segments):
     import pandas as pd
 
+    # v2 口径（2026-11-17 定版）：差 <35、一般 35–50、较好 50–65、好 65–80、很好 ≥80
     bins = pd.cut(
-        segments["score"], bins=[0, 40, 55, 70, 85, 100],
+        segments["score"], bins=[0, 35, 50, 65, 80, 100],
         labels=["差", "一般", "较好", "好", "很好"], include_lowest=True,
     )
     mismatch = (bins.astype(str) != segments["grade"]).sum()
