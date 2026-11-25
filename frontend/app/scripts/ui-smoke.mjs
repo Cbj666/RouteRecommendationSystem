@@ -187,6 +187,23 @@ try {
     await writeFile(resolve(OUT, name + '.png'), Buffer.from(result.data, 'base64'))
   }
 
+  // 搜索框交互：输入关键词、选中下拉第一项、切换路线模式
+  const typeSearch = async (text) => {
+    await evalJs(
+      `(()=>{const input=document.querySelector('.search');input.focus();input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input',{bubbles:true}))})()`,
+    )
+  }
+
+  const pickFirstOption = async () => {
+    await evalJs(
+      "document.querySelector('#origin-list .option[role=option]').dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true}))",
+    )
+  }
+
+  const setModeSeg = async (index) => {
+    await evalJs(`document.querySelectorAll('.mode-segs .seg')[${index}].click()`)
+  }
+
   // F3: 顶部只有两页签，无起点对比
   await check(
     'F3 仅保留两页签且无起点对比',
@@ -268,7 +285,6 @@ try {
       "document.querySelector('g[data-layer=route] path') && !document.querySelector('.oneway-err')",
     )
   }
-
   // 切回地图页，测试道路点击查询（仍在放大视野内）
   await tab(0)
   if (REAL) {
@@ -279,6 +295,65 @@ try {
     )
     await capture('road-detail')
   }
+
+  // 地点搜索：REAL 走 /api/places/search（需后端与高德 Key）；mock 只有 4 条内置地点
+  await tab(1)
+  // 主流程是「搜索地点当环线起点」；前面的单行线用例把模式切走了，先切回环线
+  await setModeSeg(0)
+  await check(
+    '切回环线模式',
+    "document.querySelectorAll('.mode-segs .seg')[0].classList.contains('on') && Boolean(document.querySelector('.origin-text b'))",
+  )
+
+  const loopKeyword = REAL ? '武汉大学' : '东湖'
+  const loopPicked = REAL ? '武汉大学' : '东湖绿道'
+  await typeSearch(loopKeyword)
+  await check(
+    REAL ? '地点搜索真实结果' : '地点搜索 mock 兜底',
+    REAL
+      ? "document.querySelectorAll('#origin-list .option[role=option]').length >= 3 && document.querySelector('#origin-list').textContent.includes('水利水电学院')"
+      : "document.querySelectorAll('#origin-list .option[role=option]').length >= 1 && document.querySelector('#origin-list').textContent.includes('东湖')",
+  )
+  await pickFirstOption()
+  await check(
+    '选中地点设为环线起点',
+    `document.querySelector('.search').value === ${JSON.stringify(loopPicked)} && document.querySelector('.origin-text b').textContent.startsWith(${JSON.stringify(loopKeyword)}) && Boolean(document.querySelector('g[data-layer=route] path'))`,
+  )
+  if (REAL) {
+    await check(
+      '搜索结果编号标记上地图',
+      "document.querySelectorAll('g[data-layer=places] g[data-place-index]').length >= 3 && document.querySelector('g[data-layer=places] text').textContent === '1'",
+    )
+    await capture('place-search')
+  }
+
+  // 单行线模式下同样能搜索选点：先落 A，再落 B 并生成 A→B 路线（A/B 用不同地点）
+  const onewayKeyword = REAL ? '东湖绿道' : '武汉大学'
+  await setModeSeg(1)
+  await check(
+    '切到单行线模式',
+    "document.querySelectorAll('.mode-segs .seg')[1].classList.contains('on')",
+  )
+  await typeSearch(loopKeyword)
+  await check(
+    '单行线搜索出候选',
+    "document.querySelectorAll('#origin-list .option[role=option]').length >= 1",
+  )
+  await pickFirstOption()
+  await check(
+    '搜索选中起点 A',
+    `document.querySelector('.point-card[data-point=A] b').textContent.startsWith(${JSON.stringify(loopKeyword)})`,
+  )
+  await typeSearch(onewayKeyword)
+  await check(
+    '单行线搜索出终点候选',
+    "document.querySelectorAll('#origin-list .option[role=option]').length >= 1",
+  )
+  await pickFirstOption()
+  await check(
+    '搜索选中终点 B 并生成路线',
+    `document.querySelector('.point-card[data-point=B] b').textContent.startsWith(${JSON.stringify(onewayKeyword)}) && Boolean(document.querySelector('g[data-layer=route] path'))`,
+  )
 
   // 窄屏响应式检查
   await send('Emulation.setDeviceMetricsOverride', {

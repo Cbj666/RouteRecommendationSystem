@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 import time
 import urllib.parse
 import urllib.request
@@ -25,18 +26,20 @@ class BaiduQuotaError(BaiduApiError):
 
 
 def load_ak() -> str:
-    for name in (".env", ".env.txt", "AK.txt"):
-        path = ROOT / name
-        if not path.exists():
-            continue
-        for line in path.read_text(encoding="utf-8-sig").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            value = line.split("=", 1)[1].strip() if "=" in line else line
-            if value:
-                return value
-    raise RuntimeError("未找到百度服务端 AK，请检查 .env/.env.txt")
+    """百度服务端 AK：环境变量优先，其次项目根 .env（见 app/secrets.py）。
+
+    早期版本还认根目录 ``AK.txt``（一行裸 AK）；已统一到 ``BAIDU_SERVER_AK``，
+    老文件不再读取，避免"到底用了哪把钥匙"说不清。
+    """
+    if str(Path(__file__).resolve().parents[1]) not in sys.path:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # backend/ for `app`
+    from app.secrets import require as require_secret
+
+    return require_secret(
+        "BAIDU_SERVER_AK",
+        "BAIDU_AK",
+        hint="https://lbsyun.baidu.com/ 控制台 → 应用管理 → 服务端 AK",
+    )
 
 
 def cache_keys(query: str, region: str, page_size: int, scope: int, tag: str | None) -> list[str]:

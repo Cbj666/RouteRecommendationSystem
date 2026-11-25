@@ -50,11 +50,11 @@ npm run dev
 > 跑法见 [`reference/README.md`](reference/README.md)。**它只是“怎么画”的参考，
 > 数据走的是静态文件；搬到 Vue 时请把数据源换成下面的后端接口。**
 
-1. 申请百度地图**浏览器端** AK（<https://lbsyun.baidu.com>，Referer 白名单填
-   `http://127.0.0.1:5173/*`），填进 `.env.local` 的 `VITE_BAIDU_AK`；
-2. 引入 BMapGL，**WGS84 → BD-09 的偏移必须做**（后端给的是 WGS84，百度要 BD-09，
-   直接用会整体偏移几百米）；
-3. 底图：**走后端，不要 fetch `data/`**：
+1. 底图：**用构建期 `public/geo` 的 SVG 静态图层**（`npm run sync:geo` 生成）。
+   **不要引入百度 / 高德 / 天地图等需要浏览器 Key 的 JS API**，前端不持有任何地图开发者 Key；
+2. 地点搜索：只调用 `src/api/client.ts` 的 `searchPlaces`（`GET /api/places/search`），
+   由后端代理高德并把坐标转成 WGS84；前端不做坐标系偏移、不直连地图厂商；
+3. 图层数据：**走后端，不要 fetch `data/`**：
    - `GET /api/segments`：不传 bbox 时返回默认视口（约 8,425 段），适合首屏；
      退到城市级视野时传更大的 bbox，`limit` 最大 60000，响应带 `truncated`；
    - `GET /api/water-green`：水体 / 绿地底图，画在路网下面，`kind=water|green|all`；

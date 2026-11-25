@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 import time
 import urllib.parse
@@ -60,19 +59,15 @@ STALE_H = 6.0          # 超过 6 小时没更新视为停更站
 
 
 def load_token() -> str:
-    import os
+    """AQICN token：环境变量优先，其次项目根 .env（见 app/secrets.py）。"""
+    if str(Path(__file__).resolve().parents[1]) not in sys.path:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # backend/ for `app`
+    from app.secrets import require as require_secret
 
-    tok = os.environ.get("AQICN_TOKEN", "").strip()
-    if tok:
-        return tok
-    for name in (".env", ".env.txt"):
-        p = ROOT / name
-        if not p.exists():
-            continue
-        m = re.search(r"AQICN_TOKEN\s*=\s*(\S+)", p.read_text(encoding="utf-8", errors="ignore"))
-        if m:
-            return m.group(1).strip().strip('"').strip("'")
-    raise RuntimeError("AQICN_TOKEN 未找到：请在仓库根目录 .env 里写 AQICN_TOKEN=...")
+    return require_secret(
+        "AQICN_TOKEN",
+        hint="https://aqicn.org/data-platform/token/ 免费申请",
+    )
 
 
 def api(path: str, token: str) -> dict:

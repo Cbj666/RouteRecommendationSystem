@@ -1,4 +1,10 @@
-import type { LoopCollection, LoopRequest, SegmentCollection } from '../types'
+import type {
+  LoopCollection,
+  LoopRequest,
+  Place,
+  PlaceSearchResponse,
+  SegmentCollection,
+} from '../types'
 
 /**
  * 接口封装 —— 契约见 `docs/接口契约.md`。
@@ -51,7 +57,36 @@ async function mock<T>(name: keyof typeof MOCKS): Promise<T> {
 }
 
 /**
+ * mock 模式下的地点搜索兜底：只覆盖演示用的几个武汉地标。
+ * 真后端（VITE_USE_MOCK=0）走 /api/places/search，坐标由后端统一转 WGS84。
+ */
+const MOCK_PLACES: Place[] = [
+  {
+    id: 'mock-wuda', name: '武汉大学', address: '八一路299号', province: '湖北省',
+    city: '武汉市', district: '武昌区', type: '科教文化服务;学校;高等院校',
+    typecode: '141201', lng: 114.3547, lat: 30.5342,
+  },
+  {
+    id: 'mock-donghu', name: '东湖绿道', address: '沿湖大道', province: '湖北省',
+    city: '武汉市', district: '武昌区', type: '风景名胜;公园广场;公园',
+    typecode: '110101', lng: 114.411923, lat: 30.555589,
+  },
+  {
+    id: 'mock-huanghelou', name: '黄鹤楼', address: '蛇山西山坡特1号', province: '湖北省',
+    city: '武汉市', district: '武昌区', type: '风景名胜;风景名胜;国家级景点',
+    typecode: '110202', lng: 114.302621, lat: 30.544291,
+  },
+  {
+    id: 'mock-jiangtan', name: '汉口江滩', address: '沿江大道', province: '湖北省',
+    city: '武汉市', district: '江岸区', type: '风景名胜;公园广场;公园',
+    typecode: '110101', lng: 114.293676, lat: 30.585163,
+  },
+]
+
+/**
  * mock 模式下按「模式 + 起终点 / 距离」挑一份真实快照。
+ * 快照只覆盖武大 3/5/10 km、东湖 5 km 与 3 组 A→B 单行线；其余组合回落到 5 km 武大。
+ * 接真后端后这段整体失效（USE_MOCK=0）。
  * 另支持 `?mock=empty|error|slow`，用于自测四态与截图（不影响正常访问）。
  */
 async function mockLoops(req: LoopRequest): Promise<LoopCollection> {
@@ -203,7 +238,33 @@ export async function fetchFacilities(
   return getJson(`/api/pois?${q}`)
 }
 
-/** POST /api/routes —— 生成环线或指定终点 A→B 单行线 */
+/**
+ * GET /api/places/search —— 后端代理高德关键字搜索。
+ *
+ * 返回的 lng/lat 已是 WGS84，可直接用于地图与路线；高德 Key 只在服务端。
+ * 503=服务端未配置 Key，504=高德超时，502=高德不可用。
+ */
+export async function searchPlaces(
+  query: string,
+  signal?: AbortSignal,
+  limit = 8,
+): Promise<PlaceSearchResponse> {
+  const q = query.trim()
+  if (!q) return { provider: 'amap', query: '', count: 0, places: [] }
+
+  if (USE_MOCK) {
+    await new Promise((resolve) => setTimeout(resolve, 160))
+    const places = MOCK_PLACES.filter(
+      (place) => place.name.includes(q) || place.address.includes(q) || place.district.includes(q),
+    )
+    return { provider: 'mock', query: q, count: places.length, places }
+  }
+
+  const params = new URLSearchParams({ q, limit: String(limit) })
+  return getJson<PlaceSearchResponse>(`/api/places/search?${params}`, signal)
+}
+
+/** POST /api/routes —— 生成环线或单行线（rank=1 推荐） */
 export async function fetchLoops(
   req: LoopRequest,
   signal?: AbortSignal,

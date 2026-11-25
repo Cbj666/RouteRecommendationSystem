@@ -1,11 +1,12 @@
 import { computed, reactive } from 'vue'
-import { apiMessage, fetchLoops } from '../api/client'
-import { VIEW_PADDING, fitViewBBox } from '../lib/projection'
+import { apiMessage, fetchLoops, searchPlaces as fetchPlaces } from '../api/client'
+import { VIEW, VIEW_PADDING, fitViewBBox } from '../lib/projection'
 import type {
   GeoManifest,
   LayerCollection,
   LoopCollection,
   LoopFeature,
+  Place,
   ViewBox,
 } from '../types'
 
@@ -34,7 +35,8 @@ export interface PlannerState {
   tab: TabKey
   /** 环线模式起点 */
   origin: Origin
-  originSource: 'preset' | 'custom'
+  /** 预设起点 / 地图选点 / 地点搜索，决定起点标记的来源 */
+  originSource: 'preset' | 'custom' | 'search'
   /** 单行线 A（起点）与 B（终点） */
   onewayA: Origin | null
   onewayB: Origin | null
@@ -70,6 +72,18 @@ export interface PlannerState {
   layerLoading: Record<string, boolean>
   /** 图层加载错误 */
   layerError: string
+  /** 地点搜索结果：地图编号标记与搜索下拉共用 */
+  places: Place[]
+  /** 产生 places 的关键词（用于空态与结果标题） */
+  placeQuery: string
+  /** 地点搜索中 */
+  placeLoading: boolean
+  /** 地点搜索错误（503 未配置 Key / 504 超时 / 502 高德不可用等） */
+  placeError: string
+  /** 最近从下拉里选中的地点；地图据此定位 */
+  focusedPlace: Place | null
+  /** 每次选中自增，保证重复选同一条也能重新定位 */
+  placeFocusToken: number
   /** 视口细粒度路网加载状态与截断降级提示 */
   roadsDetailLoading: boolean
   roadsTruncatedMsg: string
@@ -101,6 +115,12 @@ export const state = reactive<PlannerState>({
   layerData: {},
   layerLoading: {},
   layerError: '',
+  places: [],
+  placeQuery: '',
+  placeLoading: false,
+  placeError: '',
+  focusedPlace: null,
+  placeFocusToken: 0,
   roadsDetailLoading: false,
   roadsTruncatedMsg: '',
   roadsDetailed: false,
@@ -230,13 +250,80 @@ export function setOrigin(origin: Origin, source: PlannerState['originSource'] =
   void generate()
 }
 
+/* ------------------------------------------------------------------
+ * 地点搜索（GET /api/places/search）
+ * ------------------------------------------------------------------ */
+
+let placeRequestId = 0
+let placeController: AbortController | null = null
+
+/** 清空搜索结果与下拉状态；同时取消还在飞的请求。 */
+export function clearPlaces(): void {
+  placeController?.abort()
+  placeController = null
+  placeRequestId++
+  state.places = []
+  state.placeQuery = ''
+  state.placeLoading = false
+  state.placeError = ''
+  state.focusedPlace = null
+}
+
+/**
+ * 调后端搜地点。store 负责防抖之外的竞态：后发请求会取消先发请求，
+ * 过期响应按 requestId 丢弃；错误转成中文提示放进 placeError。
+ */
+export async function searchPlaces(query: string): Promise<void> {
+  const keywords = query.trim()
+  if (!keywords) {
+    clearPlaces()
+    return
+  }
+
+  placeController?.abort()
+  placeController = new AbortController()
+  const myId = ++placeRequestId
+
+  state.placeLoading = true
+  state.placeError = ''
+  state.places = []
+  state.focusedPlace = null
+  state.placeQuery = keywords
+
+  try {
+    const res = await fetchPlaces(keywords, placeController.signal)
+    if (myId !== placeRequestId) return
+    state.places = res.places
+    state.placeQuery = res.query || keywords
+  } catch (e) {
+    if (myId !== placeRequestId) return
+    if ((e as Error).name === 'AbortError') return
+    state.places = []
+    state.placeError = apiMessage(e)
+  } finally {
+    if (myId === placeRequestId) state.placeLoading = false
+  }
+}
+
+/** 选中一条搜索结果：环线模式设为起点，单行线模式依次设 A / B；并请求地图定位。 */
+export function selectPlace(place: Place): void {
+  const point = { name: place.name, lng: place.lng, lat: place.lat }
+  if (state.mode === 'loop') setOrigin(point, 'search')
+  else pickOriginOrDest(point, 'search')
+  // 输入框会回填地点名，让 placeQuery 跟着走，避免 TopBar 把“查询词不一致”误判成还在输入
+  state.placeQuery = place.name
+  state.focusedPlace = { ...place }
+  state.placeFocusToken++
+}
+
 /** 地图点击或顶部搜索选点：环线模式设起点；单行线模式依次设 A / B */
 export function pickOriginOrDest(
   point: Origin,
-  source: 'preset' | 'custom' = 'custom',
+  source: 'preset' | 'custom' | 'search' = 'custom',
 ): void {
+  const label = (suffix: 'A' | 'B') => (source === 'custom' ? `地图选点 ${suffix}` : point.name)
   if (state.mode === 'loop') {
-    setOrigin(point, source)
+    setOrigin(point, source === 'search' ? 'search' : source)
     return
   }
   state.onewayError = ''
@@ -244,14 +331,14 @@ export function pickOriginOrDest(
   if (state.pickingPoint === 'A') {
     state.onewayA = {
       ...point,
-      name: source === 'preset' ? point.name : '地图选点 A',
+      name: label('A'),
     }
     state.pickingPoint = 'B'
     if (state.onewayB) void generate()
   } else {
     state.onewayB = {
       ...point,
-      name: source === 'preset' ? point.name : '地图选点 B',
+      name: label('B'),
     }
     // 保持 B 为当前重选目标：想重选 B 直接再点地图即可
     state.pickingPoint = 'B'

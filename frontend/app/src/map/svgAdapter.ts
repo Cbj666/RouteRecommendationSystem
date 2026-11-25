@@ -4,6 +4,7 @@ import type {
   LayerCollection,
   LoopFeature,
   MapLayerDef,
+  Place,
   PoiInfo,
   ViewBox,
 } from '../types'
@@ -84,6 +85,7 @@ export class SvgAdapter implements MapAdapter {
   private destination: MapOrigin | null = null
   private isOneway = false
   private highlighted: [number, number][] | null = null
+  private places: Place[] = []
 
   /** F1 视口细粒度路网（null 时显示概览路网） */
   private detailRoads: LayerCollection | null = null
@@ -134,6 +136,7 @@ export class SvgAdapter implements MapAdapter {
     this.renderRoute()
     this.renderMarker()
     this.highlightRoad(this.highlighted)
+    this.renderPlaces()
     this.reorder()
   }
 
@@ -145,6 +148,7 @@ export class SvgAdapter implements MapAdapter {
     this.svg?.setAttribute('viewBox', `${x} ${y} ${MAP_W / zoom} ${MAP_H / zoom}`)
     if (zoomChanged) {
       this.renderMarker()
+      if (this.places.length) this.renderPlaces()
     }
   }
 
@@ -346,6 +350,13 @@ export class SvgAdapter implements MapAdapter {
     return best ? { lng: best.lng, lat: best.lat, count: best.count } : null
   }
 
+  /** 搜索结果标记：白边深绿圆 + 序号，与下拉列表的序号一一对应。 */
+  setPlaces(places: Place[]): void {
+    this.places = places
+    this.renderPlaces()
+    this.reorder()
+  }
+
   destroy(): void {
     this.host?.replaceChildren()
     this.host = null
@@ -357,6 +368,7 @@ export class SvgAdapter implements MapAdapter {
     this.loop = null
     this.origin = null
     this.destination = null
+    this.places = []
     this.detailRoads = null
     this.visiblePois = []
     this.renderedClusters = []
@@ -387,6 +399,8 @@ export class SvgAdapter implements MapAdapter {
     if (clusterGroup) svg.appendChild(clusterGroup)
     const selectionGroup = this.groups.get('selection')
     if (selectionGroup) svg.appendChild(selectionGroup)
+    const placesGroup = this.groups.get('places')
+    if (placesGroup) svg.appendChild(placesGroup)
     if (this.routeGroup) svg.appendChild(this.routeGroup)
     if (this.markerGroup) svg.appendChild(this.markerGroup)
   }
@@ -894,6 +908,60 @@ export class SvgAdapter implements MapAdapter {
         'vector-effect': 'non-scaling-stroke',
       }),
     )
+  }
+
+  /**
+   * 搜索结果编号标记。半径/字号按 1/zoom 缩放，屏幕上的大小不随地图缩放变化；
+   * `pointer-events="none"` 让点击继续落到地图上，避免挡住“点图选起点”。
+   */
+  private renderPlaces(): void {
+    if (!this.svg) return
+    let group = this.groups.get('places')
+    if (!group) {
+      if (this.places.length === 0) return
+      group = this.ensureGroup('places')
+    }
+    group.setAttribute('pointer-events', 'none')
+    group.replaceChildren()
+    if (this.places.length === 0) {
+      group.remove()
+      this.groups.delete('places')
+      return
+    }
+
+    const zoom = this.zoom || 1
+    this.places.forEach((place, index) => {
+      const [x, y] = project(this.view, place.lng, place.lat)
+      const mark = svgEl('g', {
+        'data-place-index': index + 1,
+        'data-place-id': place.id,
+      })
+      mark.append(
+        svgEl('circle', {
+          cx: fmt(x),
+          cy: fmt(y),
+          r: fmt(10 / zoom),
+          fill: '#15503C',
+          stroke: '#fff',
+          'stroke-width': fmt(2 / zoom),
+        }),
+      )
+      const label = svgEl('text', {
+        x: fmt(x),
+        y: fmt(y),
+        'text-anchor': 'middle',
+        'dominant-baseline': 'central',
+        'font-size': fmt(11 / zoom),
+        'font-weight': 700,
+        fill: '#fff',
+      })
+      label.textContent = String(index + 1)
+      mark.append(label)
+      const title = svgEl('title', {})
+      title.textContent = [place.name, place.address || place.district].filter(Boolean).join(' · ')
+      mark.append(title)
+      group!.append(mark)
+    })
   }
 
   private appendBadgeMarker(

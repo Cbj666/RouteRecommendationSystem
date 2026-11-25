@@ -119,6 +119,34 @@ export interface FacilityProps {
   adname?: string
 }
 
+/** GET /api/places/search 返回的单个地点；lng/lat 已由后端转成 WGS84 */
+export interface Place {
+  /** 高德 POI id；高德缺 id 时后端用「名称@坐标」兜底，保证稳定 */
+  id: string
+  name: string
+  address: string
+  province: string
+  city: string
+  district: string
+  /** 高德三级分类，例如「科教文化服务;学校;高等院校」 */
+  type: string
+  typecode: string
+  /** WGS84，可直接交给地图与路线接口 */
+  lng: number
+  lat: number
+  /** 高德原始 GCJ-02 坐标，仅用于排错 */
+  amap_lng?: number
+  amap_lat?: number
+}
+
+/** GET /api/places/search 的返回 */
+export interface PlaceSearchResponse {
+  provider: string
+  query: string
+  count: number
+  places: Place[]
+}
+
 /** GET /api/meta 的返回 */
 export interface MetaResponse {
   dataset: string

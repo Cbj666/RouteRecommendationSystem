@@ -1,0 +1,138 @@
+{
+  "real": true,
+  "checks": [
+    {
+      "name": "F3 仅保留两页签且无起点对比",
+      "ok": true
+    },
+    {
+      "name": "F1 统一单图与图层就绪",
+      "ok": true
+    },
+    {
+      "name": "F4 整城设施聚合与独立开关默认开启",
+      "ok": true
+    },
+    {
+      "name": "关闭水体",
+      "ok": true
+    },
+    {
+      "name": "恢复水体",
+      "ok": true
+    },
+    {
+      "name": "页签 1 高亮",
+      "ok": true
+    },
+    {
+      "name": "F1+环线自动生成并缩放至路线范围",
+      "ok": true
+    },
+    {
+      "name": "F4 放大后场馆与公厕分开绘制",
+      "ok": true
+    },
+    {
+      "name": "F1 放大后加载视口细粒度路网",
+      "ok": true
+    },
+    {
+      "name": "切换候选环线",
+      "ok": true
+    },
+    {
+      "name": "键盘候选切换",
+      "ok": true
+    },
+    {
+      "name": "F2 进入单行线：清空路线、隐藏距离、显示 A/B 选点卡",
+      "ok": true
+    },
+    {
+      "name": "F2 点第一下设置起点 A",
+      "ok": true
+    },
+    {
+      "name": "F2 点第二下设置终点 B 并自动生成 A→B 路线",
+      "ok": true
+    },
+    {
+      "name": "F2 选点落水在 B 卡下方展示错误并保留已选点",
+      "ok": true
+    },
+    {
+      "name": "F2 重选 B 后恢复路线",
+      "ok": true
+    },
+    {
+      "name": "页签 0 高亮",
+      "ok": true
+    },
+    {
+      "name": "路段六维评分与高亮",
+      "ok": true
+    },
+    {
+      "name": "页签 1 高亮",
+      "ok": true
+    },
+    {
+      "name": "切回环线模式",
+      "ok": true
+    },
+    {
+      "name": "地点搜索真实结果",
+      "ok": true
+    },
+    {
+      "name": "选中地点设为环线起点",
+      "ok": true
+    },
+    {
+      "name": "搜索结果编号标记上地图",
+      "ok": true
+    },
+    {
+      "name": "切到单行线模式",
+      "ok": true
+    },
+    {
+      "name": "单行线搜索出候选",
+      "ok": true
+    },
+    {
+      "name": "搜索选中起点 A",
+      "ok": true
+    },
+    {
+      "name": "单行线搜索出终点候选",
+      "ok": true
+    },
+    {
+      "name": "搜索选中终点 B 并生成路线",
+      "ok": true
+    },
+    {
+      "name": "390 px 无横向溢出且仅两页签",
+      "ok": true
+    },
+    {
+      "name": "页签 1 高亮",
+      "ok": true
+    },
+    {
+      "name": "390 px 推荐页无横向溢出",
+      "ok": true
+    },
+    {
+      "name": "320 px 无横向溢出",
+      "ok": true
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 422 (Unprocessable Content)"
+  ],
+  "failedRequests": []
+}

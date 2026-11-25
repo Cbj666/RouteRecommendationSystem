@@ -26,6 +26,7 @@ import type {
   LayerProps,
   LoopFeature,
   MapLayerDef,
+  Place,
 } from '../types'
 
 const props = defineProps<{ browse?: boolean }>()
@@ -395,13 +396,59 @@ function onCanvasClick(e: MouseEvent): void {
     void inspectRoad(lng, lat)
     return
   }
-
   // 路线推荐页：点地图设起点（环线）或依次设 A / B（单行线）
   inspection.selectedPoi = null
   pickOriginOrDest(
     { name: '地图选点', lng: Number(lng.toFixed(6)), lat: Number(lat.toFixed(6)) },
     'custom',
   )
+}
+
+function placesVisible(): boolean {
+  // 起点 / 搜索结果标记只在“环线推荐”页显示；地图页（browse）不显示
+  return !props.browse && state.tab === 'loops'
+}
+
+/**
+ * 搜索结果到达后把视野落到结果上。
+ * 只有 1 个结果时最多放到 3.2 倍，避免对着一个点糊到最大。
+ */
+function fitSearchPlaces(places: Place[]): void {
+  if (!places.length || !placesVisible()) return
+  const points = places.map((place) => project(currentView.value, place.lng, place.lat))
+  let x0 = Infinity
+  let y0 = Infinity
+  let x1 = -Infinity
+  let y1 = -Infinity
+  for (const [x, y] of points) {
+    x0 = Math.min(x0, x)
+    x1 = Math.max(x1, x)
+    y0 = Math.min(y0, y)
+    y1 = Math.max(y1, y)
+  }
+  const pad = 56
+  const zoom = Math.min(
+    MAX_ZOOM,
+    3.2,
+    Math.max(
+      1,
+      Math.min((MAP_W - pad * 2) / Math.max(x1 - x0, 1), (MAP_H - pad * 2) / Math.max(y1 - y0, 1)),
+    ),
+  )
+  updateViewport(
+    (x0 + x1) / 2 - MAP_W / (2 * zoom),
+    (y0 + y1) / 2 - MAP_H / (2 * zoom),
+    zoom,
+    true,
+  )
+}
+
+/** 从下拉选中一个结果后：地图居中到该点（保持已放大的倍率，至少 2.4 倍）。 */
+function focusPlace(place: Place): void {
+  if (!placesVisible()) return
+  const [x, y] = project(currentView.value, place.lng, place.lat)
+  const zoom = Math.min(MAX_ZOOM, Math.max(viewport.value.zoom, 2.4))
+  updateViewport(x - MAP_W / (2 * zoom), y - MAP_H / (2 * zoom), zoom, true)
 }
 
 function inspectUnderlyingRoad(): void {
@@ -417,6 +464,7 @@ function applyRouteAndMarkers(): void {
   if (props.browse) {
     adapter.setRoute(null)
     adapter.setMarkers(null, null, false)
+    adapter.setPlaces([])
     return
   }
   adapter.setRoute(activeLoop.value)
@@ -425,6 +473,7 @@ function applyRouteAndMarkers(): void {
   } else {
     adapter.setMarkers(state.origin, null, false)
   }
+  adapter.setPlaces(placesVisible() ? state.places : [])
 }
 
 function applyInspection(): void {
@@ -562,6 +611,15 @@ watch(
   { flush: 'post' },
 )
 
+// 切页签时同步路线 / 标记 / 搜索结果：地图页不显示起点与搜索编号标记
+watch(
+  () => state.tab,
+  () => {
+    applyRouteAndMarkers()
+  },
+  { flush: 'post' },
+)
+
 watch(
   () => [inspection.selected, state.accessibleOnly],
   applyInspection,
@@ -579,6 +637,21 @@ watch(
     state.onewayB?.lat,
   ],
   applyRouteAndMarkers,
+  { flush: 'post' },
+)
+watch(
+  () => state.places,
+  (places) => {
+    adapter.setPlaces(placesVisible() ? places : [])
+    fitSearchPlaces(places)
+  },
+  { flush: 'post' },
+)
+watch(
+  () => state.placeFocusToken,
+  () => {
+    if (state.focusedPlace) focusPlace(state.focusedPlace)
+  },
   { flush: 'post' },
 )
 
