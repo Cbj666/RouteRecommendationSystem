@@ -48,7 +48,7 @@ const SRC = {
   airStations: 'data/processed/running/v1/air_quality_stations.csv',
   loops: 'data/output/running/v1/loops.geojson',
   // 热点页的分析产物（1 km 全城网格，JSON）；不在图层清单里，单独复制
-  hotspotGrid: 'data/output/running/v1/hotspot/grid_1000m.json',
+  hotspotGrid: 'data/output/running/v1/hotspot/grid.json',
 }
 
 // ---------------------------------------------------------------------------
@@ -563,13 +563,13 @@ async function main() {
   await rm(join(outDir, 'segments_all.geojson'), { force: true })
 
   // 2b. 热点网格：离线分析产物（JSON），只给热点页当后端不可用时的静态兜底
-  const hotspotPath = join(outDir, 'hotspot', 'grid_1000m.json')
+  const hotspotPath = join(outDir, 'hotspot', 'grid.json')
   if (await needsRewrite(hotspotPath, sourceStats.get(SRC.hotspotGrid))) {
     await mkdir(dirname(hotspotPath), { recursive: true })
     await atomicCopy(fromRepo(SRC.hotspotGrid), hotspotPath)
-    console.log(`[sync-geo] 复制 hotspot/grid_1000m.json ← ${SRC.hotspotGrid}`)
+    console.log(`[sync-geo] 复制 hotspot/grid.json ← ${SRC.hotspotGrid}`)
   } else {
-    console.log('[sync-geo] 跳过 hotspot/grid_1000m.json（已是最新）')
+    console.log('[sync-geo] 跳过 hotspot/grid.json（已是最新）')
   }
   const hotspot = await readJson(hotspotPath)
   const hotspotCells = Array.isArray(hotspot.cells) ? hotspot.cells : []
@@ -763,7 +763,7 @@ async function main() {
       features: layers.reduce((sum, layer) => sum + layer.count, 0),
     },
     hotspot: {
-      file: 'hotspot/grid_1000m.json',
+      file: 'hotspot/grid.json',
       cells: hotspotCells.length,
       view: hotspot.view ?? null,
       generated_at: hotspot.generated_at ?? null,

@@ -385,7 +385,7 @@ export function clearError(): void {
  * ------------------------------------------------------------------ */
 
 /** 热点页专用视野：武汉全市域（与 build_hotspot_grid.py 输出的 view 一致）。 */
-export const HOTSPOT_VIEW: ViewBox = fitViewBBox([113.6928, 30.006, 115.076, 31.338], VIEW_PADDING)
+export const HOTSPOT_VIEW: ViewBox = fitViewBBox([113.6928, 30.0, 115.09, 31.34], VIEW_PADDING)
 
 /** 全市统一底图投影视图（zoom=1 时一屏看完整座武汉）；热点页改用全市域视野 */
 export const currentView = computed<ViewBox>(() => {

@@ -74,7 +74,7 @@ function gradeColor(grade: string): string {
         以此处为起点
       </button>
       <p class="note">
-        只回填起点，不自动生成路线。网格由离线脚本按 1 km 聚合，评分为样本路段的长度加权平均。
+        只回填起点，不自动生成路线。网格由离线脚本按 2 km 聚合，评分为样本路段的长度加权平均。
       </p>
     </template>
     <p v-else class="empty">点击地图上的网格或左侧榜单查看详情。</p>

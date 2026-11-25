@@ -85,14 +85,14 @@ $env:PYTHONUNBUFFERED='1'
 | `backend/scripts/merge_amap_toilet_poi.py` | 公厕合并进 `poi.gpkg`（5,839 个，幂等） | ✅ |
 | `backend/scripts/build_air_quality_chap.py` | CHAP 1 km 年均 PM2.5 / NO2 → 逐段空气 | ✅ |
 | `backend/scripts/build_air_monthly.py` | CHAP 月网格 → 12 个月曲线 | ✅ |
-| `backend/scripts/build_hotspot_grid.py` | 路段 → 全城 1 km 热点网格（`data/output/running/v1/hotspot/`，`/api/hotspot` 的数据源） | ✅ |
+| `backend/scripts/build_hotspot_grid.py` | 路段 → 全城热点网格（默认 2 km，`data/output/running/v1/hotspot/`，`/api/hotspot` 的数据源） | ✅ |
 | `data/processed/v1/` | 基础数据集（路网 / 公交 / 地铁 / POI） | ✅ |
 | `data/processed/running/v1/` | 坡度、树冠、场馆、评分（约 45 MB） | ✅ |
 | `data/processed/running/graph/` | 跑步图缓存（37 MB） | ❌ 可重建 |
 | `data/raw/` | SRTM、WorldCover、OSM、高德缓存（约 12 GB） | ❌ |
 | `data/output/running/v1/` | 地图、环线图、GeoJSON | ✅ |
 | `frontend/prototype/` | 静态原型 + 截图（旧视觉，已被 reference 取代） | ✅ |
-| `frontend/app/` | **Vue 交互页（当前前端交付物）**：两页签（环线推荐 / 热点地图）+ 13 个静态图层 + SVG 底图 + 全城 1 km 热点网格 + 环线/单行线 + 在线地点搜索 + 厕所筛选 + 路段详情 + 移动端；`npm run build` / `scripts/ui-smoke.mjs`。适宜性地图页源码保留但不在页签里露出 | ✅ |
+| `frontend/app/` | **Vue 交互页（当前前端交付物）**：两页签（环线推荐 / 热点地图）+ 13 个静态图层 + SVG 底图 + 全城 2 km 热点网格 + 环线/单行线 + 在线地点搜索 + 厕所筛选 + 路段详情 + 移动端；`npm run build` / `scripts/ui-smoke.mjs`。适宜性地图页源码保留但不在页签里露出 | ✅ |
 | `frontend/reference/` | 零依赖 SVG 参考实现（视觉真源） | ✅ |
 | `docs/` | 三个入口文档（说明书 / 分工卡片 / 交接说明）+ 数据、汇报、过程、literature、archive 五个子目录 | ✅ |
 | `presentation/` | 答辩 PPT、原型图、热点图、讲稿、素材（`素材/*.png` 不入库，可重出） | ✅ |
@@ -115,7 +115,7 @@ $env:PYTHONUNBUFFERED='1'
 | 场馆 | `data/processed/running/v1/amap_sport_poi.csv`，5,137 个（含 `in_boundary`） |
 | 公厕 | `data/processed/running/v1/amap_toilet_poi.csv`，6,122 个；`poi.gpkg` 内 5,839 个（`source_layer="amap_toilet"`） |
 | 基础路网 | `data/processed/v1/osm_walk_roads.gpkg` 图层 `walk_roads`，9.1 万段 |
-| 热点网格 | `data/output/running/v1/hotspot/grid_1000m.json`，5,480 格 / 523 热点（1 km，`build_hotspot_grid.py` 生成，`/api/hotspot` 原样返回） |
+| 热点网格 | `data/output/running/v1/hotspot/grid.json`，1,853 格 / 133 热点（默认 2 km，`build_hotspot_grid.py --cell-lng/--cell-lat` 可调，`/api/hotspot` 原样返回） |
 
 **不要**在新代码里读 `data/interim/`（上游中间表，字段更乱）。
 
@@ -271,6 +271,6 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 
 界面是**两页签**：环线推荐（默认）/ 热点地图。适宜性地图页的源码保留在 `MapStage.vue` / `App.vue` 的 `map` 分支里，但 `TopBar.vue` 不再给入口，需要时可把 `{ key: 'map', label: '适宜性地图' }` 加回 `tabs`。
 
-路线统一用 `/api/routes`，厕所用 `/api/toilets`，在线地点搜索用 `/api/places/search`（高德 Key 只在后端，返回 WGS84），热点网格用 `/api/hotspot`（离线脚本产物，前端不读 `data/`），路段详情由小 bbox 的 `/api/segments?detail=full` 查询。保留静态地图兜底（`public/geo/hotspot/grid_1000m.json` 等，由 `sync-geo.mjs` 复制，不入库）。
+路线统一用 `/api/routes`，厕所用 `/api/toilets`，在线地点搜索用 `/api/places/search`（高德 Key 只在后端，返回 WGS84），热点网格用 `/api/hotspot`（离线脚本产物，前端不读 `data/`），路段详情由小 bbox 的 `/api/segments?detail=full` 查询。保留静态地图兜底（`public/geo/hotspot/grid.json` 等，由 `sync-geo.mjs` 复制，不入库）。
 
 真实联调用 `VITE_USE_MOCK=0` 与 `UI_REAL=1 node scripts/ui-smoke.mjs`（当前 32/32）；mock 用 `$env:VITE_USE_MOCK='1'` 重启 vite 后 `UI_REAL=0`（当前 35/35）。BMapGL 底图仍未接入，在线搜索在 mock 模式下退化为 4 条内置地点。

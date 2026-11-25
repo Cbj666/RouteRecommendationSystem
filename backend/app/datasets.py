@@ -35,8 +35,8 @@ WATER_GREEN_GEOJSON = WEB / "water_green.geojson"
 POI_CSV = RUN / "amap_sport_poi.csv"
 TOILET_CSV = RUN / "amap_toilet_poi.csv"
 
-# 热点页的离线分析产物：全城 1 km 网格（build_hotspot_grid.py 生成）
-HOTSPOT_JSON = paths.OUTPUT / "running" / "v1" / "hotspot" / "grid_1000m.json"
+# 热点页的离线分析产物：全城 2 km 网格（build_hotspot_grid.py 生成）
+HOTSPOT_JSON = paths.OUTPUT / "running" / "v1" / "hotspot" / "grid.json"
 
 # 未显式传入 bbox 时使用的默认路段视口，与原型展示范围一致
 DEFAULT_SEGMENT_BBOX = (114.305, 30.508, 114.405, 30.562)

@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-"""把全城评分路段聚合为 1 km 热点网格（静态分析产物）。
+"""把全城评分路段聚合为等距热点网格（静态分析产物）。
 
 所属模块：离线数据构建层。
 
-作用：读取 ``segments.gpkg`` 的六维评分，按 1 km（经度 0.0104°、纬度 0.009°）
+作用：读取 ``segments.gpkg`` 的六维评分，按默认 2 km（经度 0.0208°、纬度 0.018°）
 网格做**按路段长度加权**的聚合，输出前端热点页直接渲染的 JSON 与供 GIS
 核对用的 GeoJSON。产物写入 ``data/output/running/v1/hotspot/``，由
 ``backend/app/api.py`` 的 ``GET /api/hotspot`` 读取并提供给前端，前端不直接
 访问 ``data/`` 目录。
+
+网格边长可用 ``--cell-lng/--cell-lat`` 调整（1 km 更细、3 km 更粗），
+默认 2 km：全市域约 1,800 格，城市级视野下色块不碎、每格样本也够。
 
 口径：
 - 综合分 = 汇总路段 ``score × length_m`` / 汇总长度，与矢量评分口径一致；
@@ -17,8 +20,8 @@
   仅用于展示，不参与评分。
 
 用法：
-    python backend/scripts/build_hotspot_grid.py
-    python backend/scripts/build_hotspot_grid.py --cell-lng 0.0208 --cell-lat 0.018
+    python backend/scripts/build_hotspot_grid.py                      # 默认 2 km
+    python backend/scripts/build_hotspot_grid.py --cell-lng 0.0104 --cell-lat 0.009   # 1 km
 """
 from __future__ import annotations
 
@@ -44,9 +47,12 @@ POI_GPKG = paths.V1 / "poi.gpkg"
 FACILITY_CSV = RUN / "amap_sport_poi.csv"
 OUT_DIR = paths.OUTPUT / "running" / "v1" / "hotspot"
 
-# 1 km 网格在武汉纬度附近对应的经纬跨度（经度 0.0104° ≈ 1.00 km）
-CELL_LNG = 0.0104
-CELL_LAT = 0.009
+# 默认 2 km 网格（经度 0.0208° ≈ 2.0 km，纬度 0.018° ≈ 2.0 km）；
+# 城市级视野下 1 km 太碎，2 km 的色块更连贯，每格样本也更足
+CELL_LNG = 0.0208
+CELL_LAT = 0.018
+OUT_JSON_NAME = "grid.json"
+OUT_GEO_NAME = "grid.geojson"
 
 GRADE_BINS = [35, 50, 65, 80]
 GRADE_LABELS = ["差", "一般", "较好", "好", "很好"]
@@ -156,6 +162,9 @@ def direction_of(dx: float, dy: float) -> str:
     return DIRECTIONS[int((angle + 22.5) // 45) % 8]
 
 
+DIRECTION_SUFFIXES = tuple(sorted(DIRECTIONS, key=len, reverse=True))
+
+
 def label_cells(cells: pd.DataFrame, anchors: pd.DataFrame) -> pd.DataFrame:
     """给每个格子取地标名：距离 + 类型惩罚取最优；超过 1.2 km 时追加方位。"""
     if anchors.empty:
@@ -177,7 +186,8 @@ def label_cells(cells: pd.DataFrame, anchors: pd.DataFrame) -> pd.DataFrame:
         i = int(np.argmin(dist + penalty))
         anchor_name = str(anchors["name"].iloc[i])[:14]
         clusters.append(anchor_name)
-        if dist[i] <= 1.2:
+        if dist[i] <= 1.2 or anchor_name.endswith(DIRECTION_SUFFIXES):
+            # 地标名本身已带方位（如「乌龙泉南」）时不再叠加后缀
             names.append(anchor_name)
         else:
             names.append(f"{anchor_name}{direction_of(float(dx[i]), float(dy[i]))}")
@@ -231,6 +241,11 @@ def aggregate(segments: pd.DataFrame, cell_lng: float, cell_lat: float) -> tuple
     return cells, view
 
 
+def cell_km(cell_lng: float) -> float:
+    """经度跨度换算成公里（武汉纬度 ≈ 30.55°，1° 经度 ≈ 95.9 km）。"""
+    return cell_lng * 111.32 * math.cos(math.radians(30.55))
+
+
 def build_payload(cells: pd.DataFrame, view: list[float], cell_lng: float, cell_lat: float,
                   segments: pd.DataFrame) -> dict:
     """把聚合结果整理成前端 /api/hotspot 的响应结构。"""
@@ -280,7 +295,7 @@ def build_payload(cells: pd.DataFrame, view: list[float], cell_lng: float, cell_
     return {
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "source": str(SEGMENTS.relative_to(paths.PROJECT)).replace("\\", "/"),
-        "note": "1 km 网格 · 全城 · 评分按路段长度加权",
+        "note": f"{cell_km(cell_lng):.0f} km 网格 · 全城 · 评分按路段长度加权",
         "cell": {"widthLng": round(cell_lng, 6), "heightLat": round(cell_lat, 6)},
         "view": view,
         "summary": {
@@ -330,9 +345,9 @@ def write_geojson(cells: pd.DataFrame, path: Path, cell_lng: float, cell_lat: fl
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="全城 1 km 热点网格聚合")
-    parser.add_argument("--cell-lng", type=float, default=CELL_LNG, help="经度跨度（默认 0.0104°≈1 km）")
-    parser.add_argument("--cell-lat", type=float, default=CELL_LAT, help="纬度跨度（默认 0.009°≈1 km）")
+    parser = argparse.ArgumentParser(description="全城热点网格聚合（默认 2 km）")
+    parser.add_argument("--cell-lng", type=float, default=CELL_LNG, help="经度跨度（默认 0.0208°≈2 km）")
+    parser.add_argument("--cell-lat", type=float, default=CELL_LAT, help="纬度跨度（默认 0.018°≈2 km）")
     parser.add_argument("--out", type=Path, default=OUT_DIR, help="输出目录")
     args = parser.parse_args()
 
@@ -347,9 +362,9 @@ def main() -> int:
     payload = build_payload(cells, view, args.cell_lng, args.cell_lat, segments)
 
     args.out.mkdir(parents=True, exist_ok=True)
-    json_path = args.out / "grid_1000m.json"
+    json_path = args.out / OUT_JSON_NAME
     json_path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    write_geojson(cells, args.out / "grid_1000m.geojson", args.cell_lng, args.cell_lat)
+    write_geojson(cells, args.out / OUT_GEO_NAME, args.cell_lng, args.cell_lat)
 
     summary = payload["summary"]
     print(
@@ -358,7 +373,7 @@ def main() -> int:
     )
     print(f"范围：{view}")
     print(f"已写入 {json_path}（{json_path.stat().st_size / 1024:.0f} KB）")
-    print(f"已写入 {args.out / 'grid_1000m.geojson'}")
+    print(f"已写入 {args.out / OUT_GEO_NAME}")
     return 0
 
 

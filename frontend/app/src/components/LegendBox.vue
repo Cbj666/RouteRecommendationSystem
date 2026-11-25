@@ -35,7 +35,7 @@ const length = computed(() => {
         <span class="sym sym-toilet sym-accessible" aria-hidden="true"></span>无障碍公厕
       </div>
       <div class="poi-row">
-        <span class="sym sym-cluster" aria-hidden="true">8</span>整城聚合点
+        <span class="sym sym-cluster" aria-hidden="true"></span>整城设施聚合（越大越多）
       </div>
     </div>
 

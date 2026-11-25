@@ -7,7 +7,7 @@
  * F5（地点搜索：环线模式设为起点、单行线模式依次落 A/B）、
  * F6（全城热点网格：离线数据经 /api/hotspot 提供，榜单与格子联动）。
  *
- * UI_REAL=1 连接真实后端（热点网格 5,480 格、地点搜索走高德）；默认 mock 用内置
+ * UI_REAL=1 连接真实后端（热点网格 1,853 格、地点搜索走高德）；默认 mock 用内置
  * 500 格网格与 4 条地点。UI_URL 指向开发服务器；UI_SCREENSHOTS=1 可选截图。
  * 记录写入 data/output/ui/<UI_OUT>，默认 frontend-delivery。
  */
@@ -342,11 +342,11 @@ try {
     `document.querySelector('.point-card[data-point=B] b').textContent.startsWith(${JSON.stringify(onewayKeyword)}) && Boolean(document.querySelector('g[data-layer=route] path'))`,
   )
 
-  // F6: 热点地图页签 —— 全城 1 km 网格（/api/hotspot 离线产物；mock 为 500 格示例）
+  // F6: 热点地图页签 —— 全城 2 km 网格（/api/hotspot 离线产物；mock 为 500 格示例）
   await tab(1)
   await check(
     'F6 热点页签与全城网格',
-    `document.querySelector('.hotspot-rank h3')?.textContent.includes('武汉跑步热点地图') && Number(document.querySelector('.hotspot-overlay').getAttribute('data-cells')) >= ${REAL ? 2000 : 400} && document.querySelector('.hotspot-detail') && document.querySelector('.hotspot-rank header p')?.textContent.includes('1 km')`,
+    `document.querySelector('.hotspot-rank h3')?.textContent.includes('武汉跑步热点地图') && Number(document.querySelector('.hotspot-overlay').getAttribute('data-cells')) >= ${REAL ? 1200 : 400} && document.querySelector('.hotspot-detail') && document.querySelector('.hotspot-rank header p')?.textContent.includes('2 km')`,
   )
   await check(
     'F6 榜单与六维详情联动',

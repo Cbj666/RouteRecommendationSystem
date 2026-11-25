@@ -147,6 +147,10 @@ export class SvgAdapter implements MapAdapter {
     this.zoom = zoom
     this.svg?.setAttribute('viewBox', `${x} ${y} ${MAP_W / zoom} ${MAP_H / zoom}`)
     if (zoomChanged) {
+      // 缩放动画每一帧都会改 viewBox；聚合圆点的半径是按当前 zoom 算的，
+      // 留在画面上会被放大成大片灰块，因此先清掉，等视野稳定后由
+      // refreshViewportSymbols() 按新缩放重画。
+      this.removeGroup('poi_clusters')
       this.renderMarker()
       if (this.places.length) this.renderPlaces()
     }
@@ -561,51 +565,45 @@ export class SvgAdapter implements MapAdapter {
       addList(activeFacilities)
       addList(activeToilets)
 
-      const group = this.ensureGroup('poi_clusters')
-      const frag = document.createDocumentFragment()
-      const r = POI_STYLES.cluster.r / this.zoom
-      const circleParts: string[] = []
-      const clusters: RenderedCluster[] = []
+      // 全城视野下把 1.1 万个设施收敛成「少量聚集点」：
+      // 只画最大的 80 个团（≥4 个设施），圆的大小表示数量，不标数字——
+      // 之前每格一个数字会让整屏都是重复的 1/2/3，反而看不清底图与路线。
+      const MIN_CLUSTER_COUNT = 4
+      const MAX_CLUSTERS = 80
+      const picked = [...buckets.values()]
+        .filter((b) => b.count >= MIN_CLUSTER_COUNT)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, MAX_CLUSTERS)
 
-      for (const b of buckets.values()) {
-        const lng = b.sumLng / b.count
-        const lat = b.sumLat / b.count
-        const [x, y] = project(this.view, lng, lat)
-        clusters.push({ lng, lat, x, y, count: b.count })
-        circleParts.push(this.circleArcXY(x, y, r))
-      }
-
-      if (circleParts.length === 0) {
+      if (picked.length === 0) {
         this.removeGroup('poi_clusters')
         return
       }
 
+      const group = this.ensureGroup('poi_clusters')
+      const circleParts: string[] = []
+      const clusters: RenderedCluster[] = []
+
+      for (const b of picked) {
+        const lng = b.sumLng / b.count
+        const lat = b.sumLat / b.count
+        const [x, y] = project(this.view, lng, lat)
+        const r = (POI_STYLES.cluster.r / this.zoom) * (0.45 + Math.min(0.45, Math.log2(b.count) / 22))
+        clusters.push({ lng, lat, x, y, count: b.count })
+        circleParts.push(this.circleArcXY(x, y, r))
+      }
+
       this.renderedClusters = clusters
-      frag.appendChild(
+      group.dataset.clusters = String(clusters.length)
+      group.replaceChildren(
         svgEl('path', {
           d: circleParts.join(''),
           fill: POI_STYLES.cluster.fill,
-          'fill-opacity': 0.88,
-          stroke: POI_STYLES.cluster.stroke,
-          'stroke-width': POI_STYLES.cluster.strokeWidth,
+          'fill-opacity': 0.45,
+          'stroke': 'none',
           'vector-effect': 'non-scaling-stroke',
         }),
       )
-      const fontSize = (9.5 / this.zoom).toFixed(2)
-      for (const c of clusters) {
-        const label = svgEl('text', {
-          x: fmt(c.x),
-          y: fmt(c.y),
-          'text-anchor': 'middle',
-          'dominant-baseline': 'central',
-          'font-size': fontSize,
-          'font-weight': 600,
-          fill: POI_STYLES.cluster.textFill,
-        })
-        label.textContent = c.count > 999 ? `${(c.count / 1000).toFixed(1)}k` : String(c.count)
-        frag.appendChild(label)
-      }
-      group.replaceChildren(frag)
       return
     }
 

@@ -284,10 +284,10 @@ export async function fetchLoops(
 }
 
 /**
- * GET /api/hotspot —— 全城 1 km 热点网格（离线算好的静态分析产物）。
+ * GET /api/hotspot —— 全城热点网格（默认 2 km，离线算好的静态分析产物）。
  *
- * 真后端直接从 `data/output/running/v1/hotspot/grid_1000m.json` 读出返回；
- * 后端未启动时回退到 vite 静态兜底 `/geo/hotspot/grid_1000m.json`
+ * 真后端直接从 `data/output/running/v1/hotspot/grid.json` 读出返回；
+ * 后端未启动时回退到 vite 静态兜底 `/geo/hotspot/grid.json`
  * （由 `scripts/sync-geo.mjs` 复制），仍然失败才抛错让页面显示错误态。
  */
 export async function fetchHotspot(signal?: AbortSignal): Promise<HotspotPayload> {
@@ -300,7 +300,7 @@ export async function fetchHotspot(signal?: AbortSignal): Promise<HotspotPayload
     return await getJson<HotspotPayload>('/api/hotspot', signal)
   } catch (error) {
     try {
-      return await getJson<HotspotPayload>('/geo/hotspot/grid_1000m.json', signal)
+      return await getJson<HotspotPayload>('/geo/hotspot/grid.json', signal)
     } catch {
       throw error
     }

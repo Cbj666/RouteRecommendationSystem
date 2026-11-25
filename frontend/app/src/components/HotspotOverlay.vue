@@ -19,7 +19,7 @@ const selectedCell = computed(
 )
 
 /**
- * 全城 5,480 个格子逐个建 <path> 会产生同样多的 DOM 节点，
+ * 全城上千个格子逐个建 <path> 会产生同样多的 DOM 节点，
  * 这里按填充色合并成「每种档次一条 path」，既快又不会出现白色接缝。
  */
 interface Layer {
@@ -46,11 +46,11 @@ function cellPath(cell: HotspotCell): string {
   const halfH = cell.heightLat / 2
   const [x0, y0] = project(props.view, cell.lng - halfW, cell.lat + halfH)
   const [x1, y1] = project(props.view, cell.lng + halfW, cell.lat - halfH)
-  // 相邻格各扩 0.6px，消除缩放时的亚像素白缝
-  const xa = (Math.min(x0, x1) - 0.6).toFixed(1)
-  const xb = (Math.max(x0, x1) + 0.6).toFixed(1)
-  const ya = (Math.min(y0, y1) - 0.6).toFixed(1)
-  const yb = (Math.max(y0, y1) + 0.6).toFixed(1)
+  // 相邻格各扩 0.25px，消除缩放时的亚像素白缝；数值再大就会看起来像格间留了缓冲带
+  const xa = (Math.min(x0, x1) - 0.25).toFixed(1)
+  const xb = (Math.max(x0, x1) + 0.25).toFixed(1)
+  const ya = (Math.min(y0, y1) - 0.25).toFixed(1)
+  const yb = (Math.max(y0, y1) + 0.25).toFixed(1)
   return `M${xa},${ya}L${xb},${ya}L${xb},${yb}L${xa},${yb}Z`
 }
 
@@ -72,6 +72,7 @@ const selectedPath = computed(() => (selectedCell.value ? cellPath(selectedCell.
       :fill="layer.fill"
       fill-opacity="0.38"
       stroke="none"
+      shape-rendering="crispEdges"
     />
     <path
       v-for="layer in hotLayers"
@@ -79,9 +80,8 @@ const selectedPath = computed(() => (selectedCell.value ? cellPath(selectedCell.
       :d="layer.d"
       :fill="layer.fill"
       fill-opacity="0.62"
-      stroke="#0f4432"
-      stroke-opacity="0.35"
-      stroke-width="0.6"
+      stroke="none"
+      shape-rendering="crispEdges"
     />
     <path
       v-if="selectedPath"

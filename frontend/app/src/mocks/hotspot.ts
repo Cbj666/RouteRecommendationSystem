@@ -1,8 +1,8 @@
 /**
  * 热点地图的 mock 兜底网格（真实数据走 /api/hotspot）。
  *
- * 真实数据由 `backend/scripts/build_hotspot_grid.py` 生成全城 1 km 网格，
- * 写入 `data/output/running/v1/hotspot/grid_1000m.json`，再由 `/api/hotspot`
+ * 真实数据由 `backend/scripts/build_hotspot_grid.py` 生成全城 2 km 网格，
+ * 写入 `data/output/running/v1/hotspot/grid.json`，再由 `/api/hotspot`
  * 提供；mock 模式（VITE_USE_MOCK 未设或不为 0）没有后端，这里用 25×20 的
  * 都市区合成格把页面结构、交互与视觉跑通，字段名与真实响应保持一致。
  */
@@ -10,10 +10,10 @@ import type { HotspotCell, HotspotPayload } from '../types'
 
 export type { HotspotCell, HotspotPayload } from '../types'
 
-export const HOTSPOT_SOURCE_NOTE = '1 km 网格 · 都市区示例 · mock 模式'
+export const HOTSPOT_SOURCE_NOTE = '2 km 网格 · 都市区示例 · mock 模式'
 
-const CELL_W = 0.0104
-const CELL_H = 0.009
+const CELL_W = 0.0208
+const CELL_H = 0.018
 const GRADE_BINS = [35, 50, 65, 80]
 const GRADE_LABELS = ['差', '一般', '较好', '好', '很好']
 

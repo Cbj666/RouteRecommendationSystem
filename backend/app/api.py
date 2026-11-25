@@ -906,13 +906,13 @@ def place_search(
 
 @app.get(
     "/api/hotspot",
-    summary="全城 1 km 热点网格（离线分析产物，按路段长度加权）",
+    summary="全城热点网格（2 km，离线分析产物，按路段长度加权）",
 )
 def hotspot() -> JSONResponse:
     """返回热点页所需的整份网格数据。
 
     数据由 ``backend/scripts/build_hotspot_grid.py`` 离线算好后写入
-    ``data/output/running/v1/hotspot/grid_1000m.json``；本接口只读取并缓存，
+    ``data/output/running/v1/hotspot/grid.json``；本接口只读取并缓存，
     不在请求里重算。前端因此不需要直接访问 ``data/`` 目录。
 
     响应字段：``note``（口径说明）、``view``（全城 bbox）、``summary``
@@ -1073,7 +1073,7 @@ def layers() -> dict:
             "hotspots": summary.get("hotspots"),
             "total_length_km": summary.get("totalLengthKm"),
             "bbox": payload.get("view"),
-            "geometry_type": "grid_1000m",
+            "geometry_type": "grid",
             "fields": {
                 "id": "格子 id（G{行}_{列}）",
                 "name": "最近地标名（>1.2 km 补方位，仅展示）",
