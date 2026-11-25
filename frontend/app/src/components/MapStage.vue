@@ -29,7 +29,20 @@ import type {
   Place,
 } from '../types'
 
-const props = defineProps<{ browse?: boolean }>()
+// 布尔 prop 缺省时 Vue 会当成 false，所以 pois 必须显式给默认值 true
+const props = withDefaults(defineProps<{ browse?: boolean; pois?: boolean }>(), { pois: true })
+
+
+/**
+ * 当前实例实际要显示的图层。
+ * 热点页只要底图与路网，场馆 / 公厕点位（及其整城聚合点）由 `pois={false}` 关掉。
+ */
+const activeIds = computed<string[]>(() => {
+  const ids = activeLayerIds.value
+  if (props.pois !== false) return ids
+  return ids.filter((id) => id !== 'facilities' && id !== 'toilets')
+})
+
 const host = ref<HTMLDivElement | null>(null)
 const adapter = new SvgAdapter()
 const inflight = new Set<string>()
@@ -588,7 +601,7 @@ function applyInspection(): void {
 function syncLayers(): void {
   const manifest = state.manifest
   if (!manifest) return
-  const active = new Set(activeLayerIds.value)
+  const active = new Set(activeIds.value)
   adapter.setView(currentView.value)
 
   const wanted = new Map<string, MapLayerDef>()
@@ -613,7 +626,7 @@ function syncLayers(): void {
 function ensureActiveLayers(): void {
   const manifest = state.manifest
   if (!manifest) return
-  const active = new Set(activeLayerIds.value)
+  const active = new Set(activeIds.value)
   for (const def of manifest.layers) {
     if (active.has(def.id) && !state.layerData[def.id]) void loadLayer(def)
   }
@@ -684,7 +697,7 @@ onMounted(async () => {
 })
 
 watch(
-  [activeLayerIds, currentView, () => state.manifest],
+  [activeIds, currentView, () => state.manifest],
   () => {
     syncLayers()
     ensureActiveLayers()

@@ -208,6 +208,37 @@ try {
     await evalJs(`document.querySelectorAll('.mode-segs .seg')[${index}].click()`)
   }
 
+  /** 在地图框内按下 → 拖到目标点 → 松开（热点页画矩形/圆用它） */
+  const dragMap = async (fromX, fromY, toX, toY) => {
+    await send('Input.dispatchMouseEvent', {
+      type: 'mousePressed',
+      x: fromX,
+      y: fromY,
+      button: 'left',
+      buttons: 1,
+      clickCount: 1,
+    })
+    for (let i = 1; i <= 10; i += 1) {
+      await send('Input.dispatchMouseEvent', {
+        type: 'mouseMoved',
+        x: Math.round(fromX + ((toX - fromX) * i) / 10),
+        y: Math.round(fromY + ((toY - fromY) * i) / 10),
+        button: 'left',
+        buttons: 1,
+      })
+      await sleep(16)
+    }
+    await send('Input.dispatchMouseEvent', {
+      type: 'mouseReleased',
+      x: toX,
+      y: toY,
+      button: 'left',
+      buttons: 0,
+      clickCount: 1,
+    })
+    await sleep(400)
+  }
+
   // F3: 顶部两页签（适宜性地图页已从前端移除，只保留环线推荐与热点地图）
   await check(
     'F3 两页签（环线推荐 / 热点地图）',
@@ -404,6 +435,36 @@ try {
   await check(
     'F6 点击榜单切换选中格',
     "document.querySelector('.hotspot-rank .rank-list li:nth-child(2)').classList.contains('on')",
+  )
+  // 热点页只服务网格：不渲染场馆 / 公厕点位与整城聚合点
+  await check(
+    'F6 热点页不显示设施点位',
+    "!document.querySelector('g[data-layer=facilities]') && !document.querySelector('g[data-layer=toilets]') && !document.querySelector('g[data-layer=poi_clusters]')",
+  )
+  // 区域筛选：矩形拖拽 → 只统计覆盖到的网格
+  await click('.hotspot-rank .region button:nth-of-type(1)')
+  await dragMap(980, 360, 1260, 620)
+  await check(
+    'F6 矩形区域筛选生效',
+    `(() => {
+      const meta = document.querySelector('.hotspot-rank .region-meta')?.textContent || ''
+      const covered = Number((meta.match(/区域内\\s*([\\d,]+)\\s*格/) || [])[1]?.replace(/,/g, '')) || 0
+      const total = Number(document.querySelector('.hotspot-overlay').getAttribute('data-cells'))
+      return Boolean(document.querySelector('.hotspot-overlay [data-region=active]')) && covered > 0 && covered < total && Boolean(meta.includes('个热点'))
+    })()`,
+  )
+  if (SCREENSHOTS) await capture('hotspot-region')
+  await check(
+    'F6 区域内榜单按分数排序',
+    `(() => {
+      const scores = [...document.querySelectorAll('.hotspot-rank .rank-list li .score')].slice(0, 5).map((el) => Number(el.textContent))
+      return scores.length >= 3 && scores.every((value, index) => index === 0 || scores[index - 1] >= value)
+    })()`,
+  )
+  await click('.hotspot-rank .region button.clear')
+  await check(
+    'F6 清除区域恢复全城',
+    `!document.querySelector('.hotspot-rank .region-meta') && !document.querySelector('.hotspot-overlay [data-region=active]') && Number(document.querySelector('.hotspot-overlay').getAttribute('data-cells')) >= ${REAL ? 1200 : 400}`,
   )
 
   // 窄屏响应式检查

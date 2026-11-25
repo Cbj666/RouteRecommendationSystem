@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { segmentColor } from '../lib/color'
-import { project, type ViewBox } from '../lib/projection'
+import { MAP_H, MAP_W, project, type ViewBox } from '../lib/projection'
 import type { HotspotCell } from '../types'
+import type { RegionShape } from '../stores/hotspot'
 
 const props = defineProps<{
   cells: HotspotCell[]
   view: ViewBox
   pixelBox: string
   selectedId: string
+  region?: RegionShape | null
+  draft?: RegionShape | null
 }>()
 
 /** 按分数从低到高画，避免高分格被低分格盖住 */
@@ -55,6 +58,51 @@ function cellPath(cell: HotspotCell): string {
 }
 
 const selectedPath = computed(() => (selectedCell.value ? cellPath(selectedCell.value) : ''))
+
+/* ------------------------------------------------------------------
+ * 区域筛选：矩形 / 圆（几何在经纬度上，画到画布再换算成像素）
+ * ------------------------------------------------------------------ */
+
+const METERS_PER_DEG_LAT = 111_320
+
+function rectPath(region: Extract<RegionShape, { kind: 'rect' }>): string {
+  const lon0 = Math.min(region.lon0, region.lon1)
+  const lon1 = Math.max(region.lon0, region.lon1)
+  const lat0 = Math.min(region.lat0, region.lat1)
+  const lat1 = Math.max(region.lat0, region.lat1)
+  const [xa, ya] = project(props.view, lon0, lat1)
+  const [xb, yb] = project(props.view, lon1, lat0)
+  return `M${xa.toFixed(1)},${ya.toFixed(1)}H${xb.toFixed(1)}V${yb.toFixed(1)}H${xa.toFixed(1)}Z`
+}
+
+function circlePath(region: Extract<RegionShape, { kind: 'circle' }>): string {
+  const [cx, cy] = project(props.view, region.lng, region.lat)
+  const kx = Math.cos((region.lat * Math.PI) / 180)
+  const pxPerLon = MAP_W / (props.view.lon1 - props.view.lon0)
+  const pxPerLat = MAP_H / (props.view.lat1 - props.view.lat0)
+  const rx = (region.radiusM / (METERS_PER_DEG_LAT * kx)) * pxPerLon
+  const ry = (region.radiusM / METERS_PER_DEG_LAT) * pxPerLat
+  if (!(rx > 0) || !(ry > 0)) return ''
+  return [
+    `M${(cx - rx).toFixed(1)},${cy.toFixed(1)}`,
+    `A${rx.toFixed(1)},${ry.toFixed(1)} 0 1 0 ${(cx + rx).toFixed(1)},${cy.toFixed(1)}`,
+    `A${rx.toFixed(1)},${ry.toFixed(1)} 0 1 0 ${(cx - rx).toFixed(1)},${cy.toFixed(1)}`,
+    'Z',
+  ].join('')
+}
+
+function shapePath(shape: RegionShape | null | undefined): string {
+  if (!shape) return ''
+  return shape.kind === 'rect' ? rectPath(shape) : circlePath(shape)
+}
+
+const regionPath = computed(() => shapePath(props.region))
+/** 区域之外的半透明遮罩：整块画布 + 区域形状（evenodd 挖洞） */
+const veilPath = computed(() => {
+  if (!regionPath.value) return ''
+  return `M0,0H${MAP_W}V${MAP_H}H0Z${regionPath.value}`
+})
+const draftPath = computed(() => shapePath(props.draft))
 </script>
 
 <template>
@@ -90,6 +138,34 @@ const selectedPath = computed(() => (selectedCell.value ? cellPath(selectedCell.
       stroke="#1f2a26"
       stroke-width="2.4"
       stroke-linejoin="round"
+    />
+    <path
+      v-if="veilPath"
+      :d="veilPath"
+      fill="#ffffff"
+      fill-opacity="0.55"
+      fill-rule="evenodd"
+      stroke="none"
+    />
+    <path
+      v-if="regionPath"
+      :d="regionPath"
+      fill="rgba(21, 80, 60, 0.10)"
+      stroke="#15503c"
+      stroke-width="1.6"
+      stroke-dasharray="6 4"
+      vector-effect="non-scaling-stroke"
+      data-region="active"
+    />
+    <path
+      v-if="draftPath"
+      :d="draftPath"
+      fill="rgba(21, 80, 60, 0.14)"
+      stroke="#15503c"
+      stroke-width="1.4"
+      stroke-dasharray="4 3"
+      vector-effect="non-scaling-stroke"
+      data-region="draft"
     />
   </svg>
 </template>

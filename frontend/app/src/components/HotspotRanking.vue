@@ -2,13 +2,26 @@
 import {
   filteredHotspots,
   hotspotCellCount,
-  hotspotCount,
   hotspotNote,
   hotspotState,
   hotspotSummary,
+  regionSummary,
   selectHotspot,
+  setDrawMode,
   setHotspotFilter,
+  setRegion,
+  visibleHotspotCount,
 } from '../stores/hotspot'
+import type { RegionDrawMode } from '../stores/hotspot'
+
+function startDraw(mode: RegionDrawMode): void {
+  setDrawMode(hotspotState.drawMode === mode ? 'none' : mode)
+}
+
+function clearRegion(): void {
+  setDrawMode('none')
+  setRegion(null)
+}
 </script>
 
 <template>
@@ -17,13 +30,47 @@ import {
       <h3>武汉跑步热点地图</h3>
       <p>{{ hotspotNote }}</p>
       <p v-if="hotspotSummary" class="meta">
-        {{ hotspotCellCount.toLocaleString() }} 格 · {{ hotspotCount.toLocaleString() }} 个热点 · 均分
+        {{ hotspotCellCount.toLocaleString() }} 格 · {{ hotspotSummary.hotspots.toLocaleString() }} 个热点 · 均分
         {{ hotspotSummary.meanScore }} · 覆盖 {{ hotspotSummary.totalLengthKm.toLocaleString() }} km
       </p>
     </header>
 
     <p v-if="hotspotState.loading" class="state">网格载入中…</p>
     <p v-else-if="hotspotState.error" class="state error">{{ hotspotState.error }}</p>
+
+    <div class="region" role="group" aria-label="区域筛选">
+      <span class="region-label">区域筛选</span>
+      <button
+        type="button"
+        :class="{ on: hotspotState.drawMode === 'rect' }"
+        @click="startDraw('rect')"
+      >
+        矩形
+      </button>
+      <button
+        type="button"
+        :class="{ on: hotspotState.drawMode === 'circle' }"
+        @click="startDraw('circle')"
+      >
+        圆形
+      </button>
+      <button v-if="hotspotState.region" type="button" class="clear" @click="clearRegion">
+        清除
+      </button>
+    </div>
+    <p v-if="hotspotState.drawMode !== 'none'" class="hint">
+      {{
+        hotspotState.drawMode === 'rect'
+          ? '在地图上按下并拖出矩形'
+          : '在地图上按下作为圆心，向外拖出半径'
+      }}
+    </p>
+    <p v-if="regionSummary" class="region-meta">
+      区域内 {{ regionSummary.cells.toLocaleString() }} 格 ·
+      {{ regionSummary.hotspots.toLocaleString() }} 个热点 · 均分
+      {{ regionSummary.meanScore.toFixed(1) }} · 覆盖
+      {{ (regionSummary.lenM / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 }) }} km
+    </p>
 
     <div class="filters" role="group" aria-label="热点筛选">
       <button
@@ -38,18 +85,20 @@ import {
         :class="{ on: hotspotState.filter === 'hotspot' }"
         @click="setHotspotFilter('hotspot')"
       >
-        仅热点 <span>{{ hotspotCount }}</span>
+        仅热点 <span>{{ visibleHotspotCount }}</span>
       </button>
     </div>
 
     <ol class="rank-list">
       <li
-        v-for="cell in filteredHotspots.slice(0, 20)"
+        v-for="(cell, index) in filteredHotspots.slice(0, 20)"
         :key="cell.id"
         :class="{ on: cell.id === hotspotState.selectedId, hot: cell.isHotspot }"
         @click="selectHotspot(cell.id)"
       >
-        <span class="rank num">{{ cell.rank > 0 ? cell.rank : '—' }}</span>
+        <span class="rank num">{{
+          hotspotState.region ? index + 1 : cell.rank > 0 ? cell.rank : '—'
+        }}</span>
         <span class="name">
           <b>{{ cell.name }}</b>
           <small>{{ cell.cluster }} · {{ Math.round(cell.lenM) }} m</small>
@@ -58,7 +107,9 @@ import {
       </li>
     </ol>
 
-    <p class="foot">点击榜单或地图格子查看六维详情。</p>
+    <p class="foot">
+      点击榜单或地图格子查看六维详情。区域筛选只统计覆盖到的网格（按路段长度加权）。
+    </p>
   </aside>
 </template>
 
@@ -134,6 +185,56 @@ header p.meta {
 
 .filters span {
   color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.region {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  flex: none;
+}
+
+.region-label {
+  color: var(--muted);
+  font-size: 11px;
+  margin-right: 2px;
+}
+
+.region button {
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  color: var(--sub);
+  font-size: 11.5px;
+  line-height: 1.4;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.region button.on {
+  color: var(--accent);
+  border-color: rgba(21, 80, 60, 0.35);
+  background: var(--accent-weak);
+  font-weight: 600;
+}
+
+.region button.clear {
+  color: #b43737;
+  border-color: rgba(180, 55, 55, 0.3);
+}
+
+.hint {
+  margin-top: 6px;
+  color: var(--accent);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.region-meta {
+  margin-top: 6px;
+  color: var(--sub);
+  font-size: 10.5px;
+  line-height: 1.5;
   font-variant-numeric: tabular-nums;
 }
 

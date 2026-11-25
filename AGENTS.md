@@ -282,6 +282,8 @@ fc = running.to_geojson(g, loops)              # FeatureCollection（LineString�
 
 路线统一用 `/api/routes`，厕所用 `/api/toilets`，在线地点搜索用 `/api/places/search`（高德 Key 只在后端，返回 WGS84），热点网格用 `/api/hotspot`（离线脚本产物，前端不读 `data/`），路段详情由小 bbox 的 `/api/segments?detail=full` 查询。保留静态地图兜底（`public/geo/hotspot/grid.json` 等，由 `sync-geo.mjs` 复制，不入库）。
 
-真实联调用 `VITE_USE_MOCK=0` 与 `UI_REAL=1 node scripts/ui-smoke.mjs`（当前 33/33）；mock 用 `$env:VITE_USE_MOCK='1'` 重启 vite 后 `UI_REAL=0`（当前 36/36）。BMapGL 底图仍未接入，在线搜索在 mock 模式下退化为 4 条内置地点。
+真实联调用 `VITE_USE_MOCK=0` 与 `UI_REAL=1 node scripts/ui-smoke.mjs`（当前 37/37）；mock 用 `$env:VITE_USE_MOCK='1'` 重启 vite 后 `UI_REAL=0`，并把 `UI_URL` 指到 mock 实例（当前 40/40）。BMapGL 底图仍未接入，在线搜索在 mock 模式下退化为 4 条内置地点。
 
 拖动与缩放（2026-11-25 改）：单指拖动走 `svgAdapter.beginPan()/panBy()/endPan()`——把 SVG 放大到 160% 并同步放宽 viewBox，拖动期只改 CSS `transform`（合成器搬运、不重光栅化），松手再落成真实 viewBox；`MapStage.clampPan()` 把位移夹在地图范围内。矢量缩放仍改 viewBox。实测 DPR=1 拖动主线程耗时 0.252 → 0.052 s、LayoutCount 60 → 2。
+
+热点页（2026-11-25 改）：不再画设施点位（MapStage 的 pois prop 置 false，图层与请求都跳过 facilities/toilets）；「区域筛选」支持在地图上拖出矩形或圆形，只统计覆盖到的网格并按长度加权重算均分与排名（纯前端、基于 /api/hotspot 已载入的格子），区域外格子用遮罩压暗，Esc 或「清除」恢复全城。
